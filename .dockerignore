@@ -1,0 +1,37 @@
+# Dependencies (rebuilt in container)
+node_modules/
+packages/*/node_modules/
+
+# Dev and test artifacts
+.env
+.env.local
+coverage/
+packages/*/coverage/
+*.test.js
+packages/server/tests/
+
+# Test configs
+packages/sdk/vitest.config.js
+packages/server/vitest.config.js
+
+# Load tests
+load-tests/
+
+# Monitoring configs (mounted separately in docker-compose)
+monitoring/
+
+# Git, IDE, OS
+.git/
+.gitignore
+.claude/
+*.md
+!packages/server/public/**
+
+# Demo apps (not needed in production image)
+packages/agent-app/
+packages/customer-app/
+
+# Docker
+Dockerfile
+docker-compose.yml
+railway.toml

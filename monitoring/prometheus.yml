@@ -10,6 +10,6 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets:
-          - host.docker.internal:4000
+          - server:4000             # Docker service name (or host.docker.internal:4000 when running server outside Docker)
         labels:
           service: cobrowse-server
