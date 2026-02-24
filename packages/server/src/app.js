@@ -43,12 +43,14 @@ async function buildApp() {
     // by client websites and the demo apps. Allow this explicitly.
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginEmbedderPolicy: false,
+    // Generate per-request nonces for script-src and style-src.
+    // Access via reply.cspNonce.script / reply.cspNonce.style in route handlers.
+    enableCSPNonces: true,
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc:  ["'self'", "'unsafe-inline'"],  // consent page needs inline script
-        scriptSrcAttr: ["'unsafe-inline'"],          // allow onclick handlers in demo HTML
-        styleSrc:   ["'self'", "'unsafe-inline'"],
+        scriptSrc:  ["'self'"],                      // nonces auto-added by enableCSPNonces
+        styleSrc:   ["'self'", "'unsafe-inline'"],   // inline styles used by rrweb replay + consent page
         connectSrc: ["'self'", '*.ably.io', '*.ably.com', 'realtime.ably.io', 'realtime.ably.com', 'ws:', 'wss:'],
         frameAncestors: ["'self'"],                  // prevent clickjacking via iframes
         formAction: ["'self'"],                      // restrict form submissions

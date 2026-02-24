@@ -126,5 +126,15 @@ document.getElementById('file-input').addEventListener('change', function () {
   ).join('');
 });
 
+// ─── UI event listeners ───────────────────────────────────────────────────────
+document.getElementById('file-upload-area').addEventListener('click', () => {
+  document.getElementById('file-input').click();
+});
+document.getElementById('btn-prev-step').addEventListener('click', () => {
+  alert('Navigating back…');
+});
+document.getElementById('btn-request-otp').addEventListener('click', showOtp);
+document.getElementById('btn-submit-claim').addEventListener('click', submitClaim);
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 initSDK();
