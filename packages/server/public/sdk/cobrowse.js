@@ -10311,12 +10311,10 @@ var CoBrowse = (() => {
 
   // src/capture.js
   var Capture = class {
-    constructor({ maskingRules, onEvent, onUrlChange }) {
+    constructor({ maskingRules, onEvent }) {
       this._rules = maskingRules || {};
       this._onEvent = onEvent;
-      this._onUrlChange = onUrlChange;
       this._stopFn = null;
-      this._lastUrl = location.href;
     }
     start() {
       const rrweb = window.rrweb;
@@ -10331,10 +10329,6 @@ var CoBrowse = (() => {
           log.debug("[CoBrowse] Capture emit called, event.type=", event && event.type);
           const safe = sanitiseEvent(event, this._rules);
           this._onEvent(safe);
-          if (location.href !== this._lastUrl) {
-            this._lastUrl = location.href;
-            this._onUrlChange(location.href);
-          }
         },
         // ─── rrweb privacy options ───────────────────────────────────────────────
         // Block entire elements from capture (hard-block PII containers)
@@ -10383,10 +10377,76 @@ var CoBrowse = (() => {
         log.error("[CoBrowse] Capture.start(): rrweb.record() returned null/undefined \u2014 recording failed!");
       }
     }
+    /**
+     * Force a full DOM snapshot — used on SPA navigation to create a clean
+     * replay checkpoint. rrweb 2.x exposes takeFullSnapshot() as a static
+     * method after record() has been called.
+     */
+    triggerCheckpoint() {
+      const rrweb = window.rrweb;
+      if (rrweb?.record?.takeFullSnapshot) {
+        log.debug("[CoBrowse] Capture: triggering checkpoint snapshot for SPA navigation");
+        rrweb.record.takeFullSnapshot();
+      }
+    }
     stop() {
       if (this._stopFn) {
         this._stopFn();
         this._stopFn = null;
+      }
+    }
+  };
+
+  // src/navigation.js
+  var Navigation = class {
+    constructor({ onNavigate }) {
+      this._onNavigate = onNavigate;
+      this._lastUrl = null;
+      this._started = false;
+      this._origPushState = null;
+      this._origReplaceState = null;
+      this._onPopState = () => this._checkUrl();
+      this._onHashChange = () => this._checkUrl();
+    }
+    start() {
+      if (this._started) return;
+      this._started = true;
+      this._lastUrl = location.href;
+      this._origPushState = history.pushState;
+      const self2 = this;
+      history.pushState = function(...args) {
+        self2._origPushState.apply(this, args);
+        self2._checkUrl();
+      };
+      this._origReplaceState = history.replaceState;
+      history.replaceState = function(...args) {
+        self2._origReplaceState.apply(this, args);
+        self2._checkUrl();
+      };
+      window.addEventListener("popstate", this._onPopState);
+      window.addEventListener("hashchange", this._onHashChange);
+      log.debug("[CoBrowse] Navigation: started monitoring SPA route changes");
+    }
+    stop() {
+      if (!this._started) return;
+      this._started = false;
+      if (this._origPushState) {
+        history.pushState = this._origPushState;
+        this._origPushState = null;
+      }
+      if (this._origReplaceState) {
+        history.replaceState = this._origReplaceState;
+        this._origReplaceState = null;
+      }
+      window.removeEventListener("popstate", this._onPopState);
+      window.removeEventListener("hashchange", this._onHashChange);
+      log.debug("[CoBrowse] Navigation: stopped monitoring");
+    }
+    _checkUrl() {
+      const currentUrl = location.href;
+      if (currentUrl !== this._lastUrl) {
+        this._lastUrl = currentUrl;
+        this._onNavigate(currentUrl);
       }
     }
   };
@@ -10539,6 +10599,7 @@ var CoBrowse = (() => {
       this._tenantId = null;
       this._transport = null;
       this._capture = null;
+      this._navigation = null;
       this._maskingRules = null;
       this._inviteAbly = null;
     }
@@ -10754,12 +10815,18 @@ var CoBrowse = (() => {
             return;
           }
           this._transport.enqueue(event);
-        },
-        onUrlChange: (url) => this._reportUrlChange(url)
+        }
       });
       log.debug("[CoBrowse] calling rrweb.record()...");
       this._capture.start();
       log.debug("[CoBrowse] rrweb.record() called. snapshotPosted=", snapshotPosted);
+      this._navigation = new Navigation({
+        onNavigate: (url) => {
+          this._capture?.triggerCheckpoint();
+          this._reportUrlChange(url);
+        }
+      });
+      this._navigation.start();
       log.debug("[CoBrowse] connecting transport");
       this._transport.connect(this._tenantId).then(() => log.debug("[CoBrowse] Transport connected")).catch((err) => log.error("[CoBrowse] Transport connect failed:", err.message));
       inject();
@@ -10888,6 +10955,8 @@ var CoBrowse = (() => {
     }
     // ─── Cleanup ──────────────────────────────────────────────────────────────────
     _cleanup(reason) {
+      this._navigation?.stop();
+      this._navigation = null;
       this._capture?.stop();
       this._transport?.disconnect();
       remove();

@@ -12,12 +12,10 @@ import { log } from './logger.js';
  */
 
 class Capture {
-  constructor({ maskingRules, onEvent, onUrlChange }) {
+  constructor({ maskingRules, onEvent }) {
     this._rules      = maskingRules || {};
     this._onEvent    = onEvent;
-    this._onUrlChange = onUrlChange;
     this._stopFn     = null;
-    this._lastUrl    = location.href;
   }
 
   start() {
@@ -38,12 +36,6 @@ class Capture {
         // (e.g. card numbers pasted into a <div contenteditable>)
         const safe = sanitiseEvent(event, this._rules);
         this._onEvent(safe);
-
-        // Detect navigation changes (SPA routing via pushState)
-        if (location.href !== this._lastUrl) {
-          this._lastUrl = location.href;
-          this._onUrlChange(location.href);
-        }
       },
 
       // ─── rrweb privacy options ───────────────────────────────────────────────
@@ -96,6 +88,19 @@ class Capture {
       log.debug('[CoBrowse] Capture.start(): rrweb.record() returned successfully');
     } else {
       log.error('[CoBrowse] Capture.start(): rrweb.record() returned null/undefined — recording failed!');
+    }
+  }
+
+  /**
+   * Force a full DOM snapshot — used on SPA navigation to create a clean
+   * replay checkpoint. rrweb 2.x exposes takeFullSnapshot() as a static
+   * method after record() has been called.
+   */
+  triggerCheckpoint() {
+    const rrweb = window.rrweb;
+    if (rrweb?.record?.takeFullSnapshot) {
+      log.debug('[CoBrowse] Capture: triggering checkpoint snapshot for SPA navigation');
+      rrweb.record.takeFullSnapshot();
     }
   }
 
