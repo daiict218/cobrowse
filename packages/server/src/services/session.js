@@ -39,12 +39,11 @@ const _timers = new Map();
  * @returns {{ session, customerToken, inviteUrl }}
  */
 async function createSession({ tenantId, agentId, customerId, channelRef, serverBaseUrl }) {
-  // Enforce one active session per agent
+  // Auto-end any existing session for this agent (stale pending/active sessions)
   const activeSessionId = await cache.get(ACTIVE_SESSION_KEY(tenantId, agentId));
   if (activeSessionId) {
-    throw new ConflictError(
-      `Agent ${agentId} already has an active session (${activeSessionId}). End it before starting a new one.`
-    );
+    logger.info({ sessionId: activeSessionId, agentId }, 'auto-ending previous session for agent');
+    await endSession(activeSessionId, tenantId, 'agent_new_session');
   }
 
   const result = await db.query(
