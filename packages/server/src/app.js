@@ -40,8 +40,10 @@ async function buildApp() {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc:  ["'self'", "'unsafe-inline'"],  // consent page needs inline script
+        scriptSrcAttr: ["'unsafe-inline'"],          // allow onclick handlers in demo HTML
         styleSrc:   ["'self'", "'unsafe-inline'"],
         connectSrc: ["'self'", '*.ably.io', '*.ably.com', 'realtime.ably.io', 'realtime.ably.com', 'ws:', 'wss:'],
+        upgradeInsecureRequests: config.isDev ? null : [],  // disable on HTTP localhost, enable in prod
       },
     },
   });
