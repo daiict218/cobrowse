@@ -1,7 +1,5 @@
-'use strict';
-
-const config = require('../config');
-const logger = require('../utils/logger');
+import config from '../config.js';
+import logger from '../utils/logger.js';
 
 /**
  * Cache abstraction layer.
@@ -66,9 +64,7 @@ class MemoryCache {
 // ─── Redis Driver ──────────────────────────────────────────────────────────────
 
 class RedisCache {
-  constructor(redisUrl) {
-    // Lazily required so ioredis is only needed when driver=redis
-    const Redis = require('ioredis');
+  constructor(redisUrl, Redis) {
     this._client = new Redis(redisUrl, { lazyConnect: true });
     this._client.on('error', (err) => logger.error({ err }, 'Redis error'));
   }
@@ -104,16 +100,15 @@ class RedisCache {
 
 // ─── Factory ───────────────────────────────────────────────────────────────────
 
-function createCache() {
-  if (config.cache.driver === 'redis') {
-    logger.info('Cache driver: Redis');
-    return new RedisCache(config.cache.redisUrl);
-  }
+let cache;
+
+if (config.cache.driver === 'redis') {
+  logger.info('Cache driver: Redis');
+  const { default: Redis } = await import('ioredis');
+  cache = new RedisCache(config.cache.redisUrl, Redis);
+} else {
   logger.info('Cache driver: in-memory (use CACHE_DRIVER=redis in production)');
-  return new MemoryCache();
+  cache = new MemoryCache();
 }
 
-// Singleton — one cache instance for the process lifetime
-const cache = createCache();
-
-module.exports = cache;
+export default cache;

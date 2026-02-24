@@ -1,7 +1,5 @@
-'use strict';
-
-const crypto = require('crypto');
-const config = require('../config');
+import crypto from 'node:crypto';
+import config from '../config.js';
 
 /**
  * Generates a short-lived, HMAC-signed token for customer session reconnects.
@@ -90,7 +88,7 @@ function generatePublicKey() {
   return `cb_pk_${crypto.randomBytes(24).toString('hex')}`;
 }
 
-module.exports = {
+export {
   generateCustomerToken,
   verifyCustomerToken,
   hashApiKey,

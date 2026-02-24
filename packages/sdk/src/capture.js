@@ -1,6 +1,4 @@
-'use strict';
-
-const { buildMaskSelector, sanitiseEvent } = require('./masking');
+import { buildMaskSelector, sanitiseEvent } from './masking.js';
 
 /**
  * Capture module — wraps rrweb's record function.
@@ -96,4 +94,4 @@ class Capture {
   }
 }
 
-module.exports = { Capture };
+export { Capture };

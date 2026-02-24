@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Base application error. All domain errors extend this.
  * Fastify's error handler serialises these into consistent JSON responses.
@@ -48,7 +46,7 @@ class ConflictError extends AppError {
   }
 }
 
-module.exports = {
+export {
   AppError,
   NotFoundError,
   UnauthorizedError,

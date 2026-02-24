@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Transport module — manages event delivery for the customer SDK.
  *
@@ -155,4 +153,4 @@ class Transport {
   }
 }
 
-module.exports = { Transport };
+export { Transport };

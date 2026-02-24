@@ -1,10 +1,8 @@
-'use strict';
+import pg from 'pg';
+import config from '../config.js';
+import { generateSecretKey, generatePublicKey, hashApiKey } from '../utils/token.js';
 
-require('dotenv').config();
-
-const { Pool } = require('pg');
-const config = require('../config');
-const { generateSecretKey, generatePublicKey, hashApiKey } = require('../utils/token');
+const { Pool } = pg;
 
 /**
  * Creates a demo tenant and prints the API keys.

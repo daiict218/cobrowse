@@ -1,9 +1,13 @@
-'use strict';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import dotenv from 'dotenv';
 
-const path = require('path');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Load .env from the server package root, regardless of where the process was launched from
 // __dirname = packages/server/src → ../ = packages/server/ → .env lives there
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 function requireEnv(key) {
   const value = process.env[key];
@@ -78,4 +82,4 @@ const config = {
   },
 };
 
-module.exports = config;
+export default config;

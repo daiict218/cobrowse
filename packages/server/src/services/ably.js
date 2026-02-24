@@ -1,8 +1,6 @@
-'use strict';
-
-const Ably = require('ably');
-const config = require('../config');
-const logger = require('../utils/logger');
+import Ably from 'ably';
+import config from '../config.js';
+import logger from '../utils/logger.js';
 
 /**
  * Ably service — wraps the server-side Ably REST client.
@@ -119,4 +117,4 @@ async function publishConsentApproved(tenantId, customerId, sessionId, customerT
   logger.debug({ tenantId, customerId, sessionId }, 'consent activation published to customer');
 }
 
-module.exports = { createTokenRequest, publishInvite, publishSysEvent, publishConsentApproved, CHANNEL };
+export { createTokenRequest, publishInvite, publishSysEvent, publishConsentApproved, CHANNEL };

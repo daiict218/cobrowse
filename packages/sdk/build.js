@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
  * SDK build script.
@@ -15,9 +14,13 @@
  *   node build.js --watch   — watch mode (development)
  */
 
-const esbuild = require('esbuild');
-const path    = require('path');
-const fs      = require('fs');
+import esbuild from 'esbuild';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const isWatch = process.argv.includes('--watch');
 
@@ -27,6 +30,7 @@ fs.mkdirSync(outDir, { recursive: true });
 const sharedOptions = {
   entryPoints: [path.resolve(__dirname, 'src/index.js')],
   bundle:      true,
+  format:      'iife',
   platform:    'browser',
   globalName:  'CoBrowse',
   // External: don't bundle rrweb if already on page (allows clients to deduplicate)
@@ -36,8 +40,9 @@ const sharedOptions = {
     'process.env.NODE_ENV': '"production"',
   },
   footer: {
-    // Expose as both global and ES module default
-    js: 'if (typeof module !== "undefined") module.exports = CoBrowse;',
+    // esbuild wraps `export default` into { default: ... } on the IIFE global.
+    // Unwrap it so `CoBrowse.init()` works directly in the browser.
+    js: 'CoBrowse = CoBrowse && CoBrowse.default ? CoBrowse.default : CoBrowse;\nif (typeof module !== "undefined") module.exports = CoBrowse;',
   },
 };
 

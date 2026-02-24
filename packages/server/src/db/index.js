@@ -1,8 +1,8 @@
-'use strict';
+import pg from 'pg';
+import config from '../config.js';
+import logger from '../utils/logger.js';
 
-const { Pool } = require('pg');
-const config = require('../config');
-const logger = require('../utils/logger');
+const { Pool } = pg;
 
 // Single connection pool shared across the whole process.
 // pg's Pool manages connection lifecycle, health checks, and retries.
@@ -65,4 +65,4 @@ async function end() {
   await pool.end();
 }
 
-module.exports = { query, transaction, end };
+export { query, transaction, end };

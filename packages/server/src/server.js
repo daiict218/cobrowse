@@ -1,9 +1,7 @@
-'use strict';
-
-const buildApp = require('./app');
-const config   = require('./config');
-const logger   = require('./utils/logger');
-const db       = require('./db');
+import buildApp from './app.js';
+import config from './config.js';
+import logger from './utils/logger.js';
+import * as db from './db/index.js';
 
 async function start() {
   // Clean up ALL pending/active sessions from previous server runs.
