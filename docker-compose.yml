@@ -11,6 +11,7 @@ services:
       PORT: 4000
       HOST: 0.0.0.0
       DATABASE_URL: postgresql://cobrowse:cobrowse_dev@postgres:5432/cobrowse
+      DB_SSL: "false"
       CACHE_DRIVER: redis
       REDIS_URL: redis://:cobrowse_dev@redis:6379
       ABLY_API_KEY: ${ABLY_API_KEY}
