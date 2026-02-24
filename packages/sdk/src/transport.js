@@ -12,7 +12,7 @@
 
 const ABLY_BATCH_INTERVAL_MS = 80;   // Ably flush every 80ms (≈12 batches/sec)
 const ABLY_MAX_BATCH_SIZE    = 50;   // max events per Ably message
-const HTTP_FLUSH_INTERVAL_MS = 100;  // HTTP relay flush every 100ms
+const HTTP_FLUSH_INTERVAL_MS = 80;   // HTTP relay flush — fast enough for low-latency, stays under rate limit
 const MAX_QUEUE_SIZE         = 10000; // prevent unbounded memory growth
 
 class Transport {

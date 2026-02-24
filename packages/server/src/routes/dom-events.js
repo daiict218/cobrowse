@@ -18,6 +18,9 @@ import { UnauthorizedError } from '../utils/errors.js';
 async function domEventsRoutes(fastify) {
   // ─── Store DOM events (called by customer SDK alongside Ably) ──────────────
   fastify.post('/:sessionId', {
+    config: {
+      rateLimit: { max: 3000, timeWindow: '1 minute' },
+    },
     schema: {
       params: {
         type: 'object',
@@ -62,6 +65,9 @@ async function domEventsRoutes(fastify) {
   // ─── Fetch DOM events (called by agent panel when Ably is unavailable) ─────
   fastify.get('/:sessionId', {
     preHandler: authenticateSecret,
+    config: {
+      rateLimit: { max: 3000, timeWindow: '1 minute' },
+    },
     schema: {
       params: {
         type: 'object',

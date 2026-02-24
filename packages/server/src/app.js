@@ -96,7 +96,7 @@ async function buildApp() {
   // ─── Rate limiting ─────────────────────────────────────────────────────────────
   await app.register(fastifyRateLimit, {
     global:   true,
-    max:      100,           // tightened from 200 — per IP per minute
+    max:      500,           // per IP per minute — high enough for HTTP relay polling
     timeWindow: '1 minute',
     keyGenerator: (request) => {
       // Rate limit per tenant when available, otherwise per IP

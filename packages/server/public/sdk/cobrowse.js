@@ -10087,7 +10087,7 @@ var CoBrowse = (() => {
   // src/transport.js
   var ABLY_BATCH_INTERVAL_MS = 80;
   var ABLY_MAX_BATCH_SIZE = 50;
-  var HTTP_FLUSH_INTERVAL_MS = 100;
+  var HTTP_FLUSH_INTERVAL_MS = 80;
   var MAX_QUEUE_SIZE = 1e4;
   var Transport = class {
     constructor({ serverUrl, sessionId, customerToken, onCtrl, onSys }) {
