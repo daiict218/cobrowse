@@ -32,8 +32,9 @@ const config = {
 
   db: {
     url: requireEnv('DATABASE_URL'),
-    // In production, enable SSL: ssl: { rejectUnauthorized: false }
-    ssl: optionalEnv('NODE_ENV') === 'production'
+    // Enable SSL by default in production; override with DB_SSL=false for
+    // Docker/self-hosted Postgres that doesn't support SSL.
+    ssl: optionalEnv('DB_SSL', optionalEnv('NODE_ENV') === 'production' ? 'true' : 'false') === 'true'
       ? { rejectUnauthorized: false }
       : false,
   },
