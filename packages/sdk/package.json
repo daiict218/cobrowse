@@ -6,14 +6,20 @@
   "main": "src/index.js",
   "scripts": {
     "build": "node build.js",
-    "dev": "node build.js --watch"
+    "dev": "node build.js --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "rrweb": "^2.0.0-alpha.17",
-    "ably": "^2.6.0"
+    "ably": "^2.6.0",
+    "rrweb": "^2.0.0-alpha.17"
   },
   "devDependencies": {
-    "esbuild": "^0.23.0"
+    "@vitest/coverage-v8": "^4.0.18",
+    "esbuild": "^0.23.0",
+    "jsdom": "^28.1.0",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18.0.0"
