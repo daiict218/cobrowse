@@ -1,12 +1,13 @@
 [build]
-# Install deps, bundle the SDK, run DB migration and seed demo tenant.
-# Seed is idempotent (ON CONFLICT DO NOTHING), so it's safe to run on every deploy.
-# On first deploy the seed prints fresh keys — copy them from the build log and set
-# DEMO_SECRET_KEY + DEMO_PUBLIC_KEY as Railway env vars, then trigger a redeploy.
-buildCommand = "npm ci && npm run build:sdk && node packages/server/src/db/migrate.js && node packages/server/src/db/seed.js"
+# Install deps and bundle the SDK. DB migration runs at startup (not build)
+# because Railway's internal DB hostname is only available at runtime.
+buildCommand = "npm ci && npm run build:sdk"
 
 [deploy]
-startCommand = "node packages/server/src/server.js"
+# Migrate + seed on every start (both are idempotent), then start the server.
+# On first deploy the seed prints fresh keys in the deploy logs — copy them and set
+# DEMO_SECRET_KEY + DEMO_PUBLIC_KEY as Railway env vars, then trigger a redeploy.
+startCommand = "node packages/server/src/db/migrate.js && node packages/server/src/db/seed.js && node packages/server/src/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
