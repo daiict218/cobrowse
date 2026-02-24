@@ -18,7 +18,7 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
     "esbuild": "^0.23.0",
-    "jsdom": "^28.1.0",
+    "jsdom": "^25.0.1",
     "vitest": "^4.0.18"
   },
   "engines": {
