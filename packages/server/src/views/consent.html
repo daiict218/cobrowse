@@ -245,6 +245,7 @@
 <script>
   const SESSION_ID  = '{{SESSION_ID}}';
   const CUSTOMER_ID = '{{CUSTOMER_ID}}';
+  const CSRF_TOKEN  = '{{CSRF_TOKEN}}';
 
   document.getElementById('btn-allow').addEventListener('click', handleAllow);
   document.getElementById('btn-decline').addEventListener('click', handleDecline);
@@ -271,7 +272,7 @@
       const res = await fetch(`/consent/${SESSION_ID}/approve`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ customerId: CUSTOMER_ID }),
+        body:    JSON.stringify({ customerId: CUSTOMER_ID, csrfToken: CSRF_TOKEN }),
       });
 
       if (!res.ok) {
@@ -303,7 +304,7 @@
       await fetch(`/consent/${SESSION_ID}/decline`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ customerId: CUSTOMER_ID }),
+        body:    JSON.stringify({ customerId: CUSTOMER_ID, csrfToken: CSRF_TOKEN }),
       });
     } catch {}
     showView('view-declined');

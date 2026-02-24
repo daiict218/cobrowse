@@ -44,8 +44,8 @@ async function snapshotsRoutes(fastify) {
     let tokenPayload;
     try {
       tokenPayload = verifyCustomerToken(customerToken);
-    } catch (err) {
-      throw new UnauthorizedError(`Invalid customer token: ${err.message}`);
+    } catch {
+      throw new UnauthorizedError('Invalid or expired authentication token');
     }
 
     if (tokenPayload.sessionId !== sessionId) {

@@ -12,7 +12,8 @@
 
 const ABLY_BATCH_INTERVAL_MS = 80;   // Ably flush every 80ms (≈12 batches/sec)
 const ABLY_MAX_BATCH_SIZE    = 50;   // max events per Ably message
-const HTTP_FLUSH_INTERVAL_MS = 100;  // HTTP relay flush every 100ms
+const HTTP_FLUSH_INTERVAL_MS = 80;   // HTTP relay flush — fast enough for low-latency, stays under rate limit
+const MAX_QUEUE_SIZE         = 10000; // prevent unbounded memory growth
 
 class Transport {
   constructor({ serverUrl, sessionId, customerToken, onCtrl, onSys }) {
@@ -79,11 +80,24 @@ class Transport {
     this._ctrlCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:ctrl`);
     this._sysCh  = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:sys`);
 
-    // Agent pointer events
-    this._ctrlCh.subscribe('pointer', (msg) => this._onCtrl({ type: 'pointer', ...msg.data }));
+    // Agent pointer events — validate bounds before using
+    this._ctrlCh.subscribe('pointer', (msg) => {
+      const data = msg.data;
+      if (!data || typeof data !== 'object') return;
+      const { x, y } = data;
+      if (typeof x !== 'number' || typeof y !== 'number') return;
+      if (!isFinite(x) || !isFinite(y)) return;
+      // Clamp to valid viewport range (0–1 normalised)
+      this._onCtrl({ type: 'pointer', x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) });
+    });
 
-    // System lifecycle events (session end, idle warning)
-    this._sysCh.subscribe((msg) => this._onSys({ type: msg.name, ...msg.data }));
+    // System lifecycle events — whitelist valid event types
+    const VALID_SYS_EVENTS = new Set(['session.ended', 'session.idle_warned', 'snapshot.updated', 'customer.joined']);
+    this._sysCh.subscribe((msg) => {
+      if (!VALID_SYS_EVENTS.has(msg.name)) return;
+      const data = (msg.data && typeof msg.data === 'object') ? msg.data : {};
+      this._onSys({ type: msg.name, ...data });
+    });
 
     this._ablyReady = true;
     this._startAblyBatchTimer();
@@ -95,6 +109,14 @@ class Transport {
   enqueue(event) {
     this._ablyBatch.push(event);
     this._httpBatch.push(event);
+
+    // Prevent unbounded memory growth — drop oldest events if queue overflows
+    if (this._ablyBatch.length > MAX_QUEUE_SIZE) {
+      this._ablyBatch.splice(0, Math.floor(MAX_QUEUE_SIZE * 0.1));
+    }
+    if (this._httpBatch.length > MAX_QUEUE_SIZE) {
+      this._httpBatch.splice(0, Math.floor(MAX_QUEUE_SIZE * 0.1));
+    }
 
     if (this._ablyReady && this._ablyBatch.length >= ABLY_MAX_BATCH_SIZE) {
       this._flushAbly();

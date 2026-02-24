@@ -1,8 +1,10 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as sessionService from '../services/session.js';
-import { NotFoundError } from '../utils/errors.js';
+import { NotFoundError, ForbiddenError } from '../utils/errors.js';
+import cache from '../cache/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +13,17 @@ const consentTemplate = fs.readFileSync(
   path.join(__dirname, '../views/consent.html'),
   'utf8'
 );
+
+/** Escape HTML special chars to prevent XSS in template interpolation. */
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 /**
  * Consent routes — customer-facing HTML page and API action.
@@ -50,16 +63,32 @@ async function consentRoutes(fastify) {
       return;
     }
 
-    // Simple template substitution — no JS framework needed for a server-rendered page
+    // Generate CSRF token for consent form protection
+    const csrfToken = crypto.randomBytes(32).toString('hex');
+    await cache.set(`csrf:${sessionId}`, csrfToken, 600); // 10 minute TTL
+
+    // HTML-escape all interpolated values to prevent XSS
     const html = consentTemplate
-      .replaceAll('{{SESSION_ID}}',   sessionId)
-      .replaceAll('{{CUSTOMER_ID}}',  session.customer_id)
-      .replaceAll('{{AGENT_ID}}',     session.agent_id)
-      .replaceAll('{{TENANT_NAME}}',  session.tenant_name ?? 'CoBrowse')
-      .replaceAll('{{STATUS}}',       session.status);
+      .replaceAll('{{SESSION_ID}}',   escapeHtml(sessionId))
+      .replaceAll('{{CUSTOMER_ID}}',  escapeHtml(session.customer_id))
+      .replaceAll('{{AGENT_ID}}',     escapeHtml(session.agent_id))
+      .replaceAll('{{TENANT_NAME}}',  escapeHtml(session.tenant_name ?? 'CoBrowse'))
+      .replaceAll('{{STATUS}}',       escapeHtml(session.status))
+      .replaceAll('{{CSRF_TOKEN}}',   csrfToken);
 
     reply.type('text/html').send(html);
   });
+
+  // ─── CSRF validation helper ──────────────────────────────────────────────────
+  async function validateCsrf(sessionId, csrfToken) {
+    if (!csrfToken) throw new ForbiddenError('CSRF token required');
+    const stored = await cache.get(`csrf:${sessionId}`);
+    if (!stored || stored !== csrfToken) {
+      throw new ForbiddenError('Invalid or expired CSRF token');
+    }
+    // Consume the token (one-time use)
+    await cache.del(`csrf:${sessionId}`);
+  }
 
   // ─── Customer approves consent ───────────────────────────────────────────────
   fastify.post('/:sessionId/approve', {
@@ -74,13 +103,20 @@ async function consentRoutes(fastify) {
         required: ['customerId'],
         properties: {
           customerId: { type: 'string', minLength: 1, maxLength: 128 },
+          csrfToken:  { type: 'string', maxLength: 128 },
         },
         additionalProperties: false,
       },
     },
   }, async (request, reply) => {
     const { sessionId } = request.params;
-    const { customerId } = request.body;
+    const { customerId, csrfToken } = request.body;
+
+    // Validate CSRF token if provided (hosted consent page always sends it;
+    // SDK inline consent may not have one — that path is same-origin + SameSite protected)
+    if (csrfToken) {
+      await validateCsrf(sessionId, csrfToken);
+    }
 
     const { customerToken, session } = await sessionService.recordConsent({
       sessionId,
@@ -108,13 +144,18 @@ async function consentRoutes(fastify) {
         required: ['customerId'],
         properties: {
           customerId: { type: 'string', minLength: 1, maxLength: 128 },
+          csrfToken:  { type: 'string', maxLength: 128 },
         },
         additionalProperties: false,
       },
     },
   }, async (request, reply) => {
     const { sessionId } = request.params;
-    const { customerId } = request.body;
+    const { customerId, csrfToken } = request.body;
+
+    if (csrfToken) {
+      await validateCsrf(sessionId, csrfToken);
+    }
 
     await sessionService.recordDecline({ sessionId, customerId });
     reply.send({ declined: true });

@@ -129,7 +129,7 @@ class Session {
   _handleActivate({ sessionId, customerToken }) {
     if (this._state === 'active') return; // already active (e.g. inline consent used)
 
-    console.debug('[CoBrowse] _handleActivate called', { sessionId, hasToken: !!customerToken });
+    console.debug('[CoBrowse] _handleActivate called', { hasSession: !!sessionId, hasToken: !!customerToken });
 
     // Remove inline overlay if it's still showing
     document.getElementById('__cobrowse_consent__')?.remove();
@@ -141,7 +141,7 @@ class Session {
     // Format after decode: sessionId:customerId:tenantId:expiresAt:hmac
     if (!this._tenantId && customerToken) {
       this._tenantId = this._extractTenantFromToken(customerToken);
-      console.debug('[CoBrowse] resolved tenantId from token:', this._tenantId);
+      console.debug('[CoBrowse] resolved tenantId from token');
     }
 
     try {
@@ -254,7 +254,7 @@ class Session {
       console.warn('[CoBrowse] _startCapture called while already active — ignoring');
       return;
     }
-    console.debug('[CoBrowse] _startCapture: starting', { sessionId: this._sessionId, tenantId: this._tenantId });
+    console.debug('[CoBrowse] _startCapture: starting');
     this._setState('active'); // Set FIRST — prevents concurrent second call from proceeding
 
     // Create transport (not yet connected to Ably — events will be buffered until connection)
@@ -299,7 +299,7 @@ class Session {
           const events = metaEvent ? [metaEvent, event] : [event];
           if (!snapshotPosted) {
             snapshotPosted = true;
-            console.debug('[CoBrowse] posting initial snapshot, count=', events.length, 'sessionId=', this._sessionId);
+            console.debug('[CoBrowse] posting initial snapshot, count=', events.length);
           } else {
             console.debug('[CoBrowse] re-posting snapshot on navigation, count=', events.length);
           }
@@ -327,7 +327,7 @@ class Session {
 
     // Connect Ably transport in background (non-blocking)
     // Transport buffers events enqueued before connection; flushes them once attached.
-    console.debug('[CoBrowse] connecting transport, tenantId=', this._tenantId);
+    console.debug('[CoBrowse] connecting transport');
     this._transport.connect(this._tenantId)
       .then(() => console.debug('[CoBrowse] Transport connected'))
       .catch((err) => console.error('[CoBrowse] Transport connect failed:', err.message));
@@ -419,8 +419,9 @@ class Session {
   // was published. This polls the server every 2 seconds as a reliable fallback.
 
   _pollForActivation() {
-    const MAX_POLLS = 45; // 45 × 2s = 90 second window
+    const MAX_POLLS = 30; // reduced from 45 — backoff covers more time
     let attempts = 0;
+    let interval = 2000; // start at 2s, grows with backoff
 
     const poll = async () => {
       if (this._state === 'active' || this._state === 'ended') return;
@@ -450,7 +451,9 @@ class Session {
         }
       } catch { /* non-fatal */ }
 
-      setTimeout(poll, 2000);
+      // Exponential backoff: 2s → 3s → 4.5s → ... capped at 15s
+      interval = Math.min(interval * 1.5, 15000);
+      setTimeout(poll, interval);
     };
 
     setTimeout(poll, 2000); // first check 2 seconds after init

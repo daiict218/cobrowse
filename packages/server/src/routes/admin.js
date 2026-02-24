@@ -3,6 +3,7 @@ import { exportTenantEvents } from '../services/audit.js';
 import { ValidationError } from '../utils/errors.js';
 import { generateCustomerToken, hashApiKey } from '../utils/token.js';
 import * as db from '../db/index.js';
+import cache from '../cache/index.js';
 
 /**
  * Admin routes — tenant configuration and audit export.
@@ -54,6 +55,23 @@ async function adminRoutes(fastify) {
     },
   }, async (request, reply) => {
     const { id: tenantId, masking_rules: current } = request.tenant;
+
+    // Validate regex patterns before persisting — reject invalid or catastrophic patterns
+    if (request.body.patterns) {
+      for (const patternStr of request.body.patterns) {
+        try {
+          // eslint-disable-next-line no-new
+          new RegExp(patternStr, 'g');
+        } catch (err) {
+          throw new ValidationError(`Invalid regex pattern "${patternStr}": ${err.message}`);
+        }
+        // Guard against obvious ReDoS — reject nested quantifiers like (a+)+
+        if (/(\+|\*|\{)\s*\)(\+|\*|\{)/.test(patternStr)) {
+          throw new ValidationError(`Potentially catastrophic regex pattern rejected: "${patternStr}"`);
+        }
+      }
+    }
+
     const updated = { ...current, ...request.body };
 
     await db.query(
@@ -188,7 +206,14 @@ async function publicRoutes(fastify) {
     const { id: sessionId, status, agent_id: agentId } = sessionResult.rows[0];
 
     if (status === 'active') {
-      const customerToken = generateCustomerToken(sessionId, customerId, tenantId);
+      // Cache the token per session so we don't generate fresh tokens on every poll.
+      // A fresh token on every request is a session-fixation risk.
+      const tokenCacheKey = `poll_token:${sessionId}:${customerId}`;
+      let customerToken = await cache.get(tokenCacheKey);
+      if (!customerToken) {
+        customerToken = generateCustomerToken(sessionId, customerId, tenantId);
+        await cache.set(tokenCacheKey, customerToken, 600); // 10 min TTL
+      }
       reply.send({ sessionId, customerToken, status: 'active' });
     } else {
       // Pending — SDK should show consent overlay

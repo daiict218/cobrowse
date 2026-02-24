@@ -11,21 +11,34 @@
 const BANNER_ID  = '__cobrowse_banner__';
 const POINTER_ID = '__cobrowse_pointer__';
 
+let _bannerObserver = null;
+
 function inject() {
   if (document.getElementById(BANNER_ID)) return; // already injected
 
   const host = document.createElement('div');
   host.id = BANNER_ID;
   host.style.cssText = [
-    'position: fixed',
-    'top: 0',
-    'left: 0',
-    'right: 0',
-    'z-index: 2147483647',
+    'position: fixed !important',
+    'top: 0 !important',
+    'left: 0 !important',
+    'right: 0 !important',
+    'z-index: 2147483647 !important',
     'pointer-events: none',
     'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    'display: block !important',
+    'visibility: visible !important',
+    'opacity: 1 !important',
   ].join(';');
   document.documentElement.appendChild(host);
+
+  // Re-inject banner if page JS removes it (consent transparency protection)
+  _bannerObserver = new MutationObserver(() => {
+    if (!document.getElementById(BANNER_ID)) {
+      document.documentElement.appendChild(host);
+    }
+  });
+  _bannerObserver.observe(document.documentElement, { childList: true });
 
   // Shadow DOM prevents page styles from leaking in or out
   const shadow = host.attachShadow({ mode: 'closed' });
@@ -81,6 +94,11 @@ function inject() {
 }
 
 function remove() {
+  // Stop the observer first so removal isn't re-injected
+  if (_bannerObserver) {
+    _bannerObserver.disconnect();
+    _bannerObserver = null;
+  }
   const el = document.getElementById(BANNER_ID);
   if (el) el.remove();
   removePointer();

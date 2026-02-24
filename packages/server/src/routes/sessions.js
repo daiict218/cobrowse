@@ -19,8 +19,8 @@ async function sessionsRoutes(fastify) {
         type: 'object',
         required: ['agentId', 'customerId'],
         properties: {
-          agentId:    { type: 'string', minLength: 1, maxLength: 128 },
-          customerId: { type: 'string', minLength: 1, maxLength: 128 },
+          agentId:    { type: 'string', minLength: 1, maxLength: 128, pattern: '^[a-zA-Z0-9_.@:=-]+$' },
+          customerId: { type: 'string', minLength: 1, maxLength: 128, pattern: '^[a-zA-Z0-9_.@:=-]+$' },
           channelRef: { type: 'string', maxLength: 256 }, // CRM conversation ID (optional)
         },
         additionalProperties: false,

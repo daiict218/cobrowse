@@ -40,12 +40,12 @@ async function _resolveTenant(apiKey) {
 }
 
 function _extractKey(request) {
-  // Support both header formats for flexibility
+  // Only accept API keys via headers — never query params.
+  // Query params appear in server logs, proxy logs, browser history, and Referer headers.
   return (
     request.headers['x-api-key'] ||
     request.headers['x-cb-secret-key'] ||
-    request.headers['x-cb-public-key'] ||
-    request.query?.apiKey
+    request.headers['x-cb-public-key']
   );
 }
 

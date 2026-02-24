@@ -41,6 +41,14 @@ const CoBrowse = {
       throw new Error('[CoBrowse] serverUrl, publicKey, and customerId are required');
     }
 
+    // Warn if SDK is communicating over insecure HTTP in production
+    if (typeof window !== 'undefined' &&
+        !serverUrl.startsWith('https://') &&
+        !serverUrl.includes('localhost') &&
+        !serverUrl.includes('127.0.0.1')) {
+      console.warn('[CoBrowse] WARNING: serverUrl uses HTTP. Tokens and session data are sent unencrypted. Use HTTPS in production.');
+    }
+
     // Fetch tenant masking rules before starting capture
     const maskingRules = await _fetchMaskingRules(serverUrl, publicKey);
 
@@ -101,17 +109,25 @@ const CoBrowse = {
   },
 };
 
+// Fail-closed defaults: if we can't fetch rules, mask common sensitive patterns anyway
+const FALLBACK_MASKING_RULES = {
+  selectors: [],
+  maskTypes: ['password'],
+  patterns: [],
+};
+
 async function _fetchMaskingRules(serverUrl, publicKey) {
   try {
     const res = await fetch(`${serverUrl}/api/v1/public/masking-rules`, {
       headers: { 'X-CB-Public-Key': publicKey },
     });
-    if (!res.ok) return {};
+    if (!res.ok) return FALLBACK_MASKING_RULES;
     const data = await res.json();
-    return data.maskingRules || {};
+    return data.maskingRules || FALLBACK_MASKING_RULES;
   } catch {
-    // Non-fatal — fall back to default masking rules built into the SDK
-    return {};
+    // Fail-closed: use built-in defaults so masking is never completely disabled
+    console.warn('[CoBrowse] Could not fetch masking rules, using built-in defaults');
+    return FALLBACK_MASKING_RULES;
   }
 }
 

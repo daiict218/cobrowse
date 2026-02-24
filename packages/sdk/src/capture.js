@@ -56,12 +56,24 @@ class Capture {
       // arbitrary CSS selectors (CVV, OTP, phone, account numbers etc).
       maskInputOptions: { password: true },
       maskInputFn: (text, element) => {
-        if (!maskSelector || !element?.matches) return text;
-        try {
-          return element.matches(maskSelector) ? '████' : text;
-        } catch {
-          return text;
+        if (!element?.matches) return text;
+
+        // Primary: CSS selector matching (handles exact selectors)
+        if (maskSelector) {
+          try {
+            if (element.matches(maskSelector)) return '████';
+          } catch { /* invalid selector — fall through to secondary check */ }
         }
+
+        // Secondary: case-insensitive name/id check to catch CARD_NUMBER vs card_number
+        const name = (element.name || '').toLowerCase();
+        const id   = (element.id   || '').toLowerCase();
+        const sensitive = ['card', 'cvv', 'cvc', 'otp', 'pin', 'ssn', 'password', 'secret'];
+        for (const term of sensitive) {
+          if (name.includes(term) || id.includes(term)) return '████';
+        }
+
+        return text;
       },
 
       // Capture options

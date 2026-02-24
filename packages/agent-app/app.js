@@ -230,7 +230,7 @@ function startDomEventPoll() {
     } catch {
       // Non-fatal — will retry next poll
     }
-  }, 150); // Poll ~7x/sec for near-real-time feel
+  }, 50); // Poll 20x/sec for near-real-time feel
 }
 
 // ─── Refresh replayer on navigation ──────────────────────────────────────────
