@@ -8,6 +8,7 @@ import fastifyStatic from '@fastify/static';
 import config from './config.js';
 import logger from './utils/logger.js';
 import * as db from './db/index.js';
+import cache from './cache/index.js';
 import { AppError } from './utils/errors.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -252,8 +253,35 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
   });
 
   // ─── Routes ───────────────────────────────────────────────────────────────────
-  // Health check (no auth — used by load balancers)
+  // Liveness probe — always returns 200 if the process is up (load balancers, k8s)
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }));
+
+  // Readiness probe — checks DB and cache connectivity before accepting traffic
+  app.get('/health/ready', async (_request, reply) => {
+    const checks = {};
+    let healthy = true;
+
+    // PostgreSQL
+    try {
+      await db.query('SELECT 1');
+      checks.db = 'ok';
+    } catch (err) {
+      checks.db = 'error';
+      healthy = false;
+      logger.warn({ err }, 'readiness: db check failed');
+    }
+
+    // Cache (Redis when CACHE_DRIVER=redis, always ok for in-memory)
+    if (typeof cache.ping === 'function') {
+      checks.cache = (await cache.ping()) ? 'ok' : 'error';
+      if (checks.cache !== 'ok') healthy = false;
+    } else {
+      checks.cache = 'ok'; // in-memory is always available
+    }
+
+    const status = healthy ? 'ok' : 'degraded';
+    reply.code(healthy ? 200 : 503).send({ status, checks, ts: new Date().toISOString() });
+  });
 
   // API v1 — agent-facing
   const sessionsRoutes = (await import('./routes/sessions.js')).default;
