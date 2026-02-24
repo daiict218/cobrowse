@@ -1,0 +1,19 @@
+{
+  "name": "cobrowse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant co-browsing platform",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=packages/server",
+    "build:sdk": "npm run build --workspace=packages/sdk",
+    "db:migrate": "npm run db:migrate --workspace=packages/server",
+    "db:seed": "npm run db:seed --workspace=packages/server",
+    "start": "npm run start --workspace=packages/server"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

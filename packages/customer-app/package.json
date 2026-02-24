@@ -1,0 +1,8 @@
+{
+  "name": "@cobrowse/customer-app",
+  "version": "1.0.0",
+  "description": "CoBrowse customer demo app — simulates a client website (insurance claim form)",
+  "scripts": {
+    "start": "npx serve . -p 3001 --cors"
+  }
+}

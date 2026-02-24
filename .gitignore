@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment (contains secrets)
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# IDE / tooling
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+
+# Build artifacts (SDK is rebuilt on deploy)
+# Keep cobrowse.js + cobrowse.min.js committed so local dev works without build step
+# packages/server/public/sdk/cobrowse.js
+# packages/server/public/sdk/cobrowse.min.js
+packages/server/public/sdk/*.map

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Screen Sharing Request — {{TENANT_NAME}}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f6fa;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 440px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .card-header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 28px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo { font-size: 24px; }
+    .header-text h1 { font-size: 18px; font-weight: 600; }
+    .header-text p { font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+
+    .card-body { padding: 32px; }
+
+    .agent-badge {
+      background: #f0f4ff;
+      border: 1px solid #d0ddff;
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .agent-avatar {
+      width: 44px;
+      height: 44px;
+      background: #4f6ef7;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .agent-info strong { font-size: 15px; color: #1a1a2e; }
+    .agent-info span   { font-size: 13px; color: #666; display: block; margin-top: 2px; }
+
+    .what-agent-sees {
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+
+    .what-agent-sees h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #444;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .permission-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .permission-row:last-child { margin-bottom: 0; }
+
+    .icon-yes { color: #22c55e; font-size: 16px; }
+    .icon-no  { color: #ef4444; font-size: 16px; }
+
+    .privacy-note {
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 13px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-allow {
+      background: #4f6ef7;
+      color: #fff;
+    }
+    .btn-allow:hover { opacity: 0.9; }
+
+    .btn-decline {
+      background: #f3f4f6;
+      color: #555;
+    }
+    .btn-decline:hover { background: #e5e7eb; }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* States */
+    .state { display: none; text-align: center; padding: 32px 0; }
+    .state.visible { display: block; }
+
+    .state-icon { font-size: 48px; margin-bottom: 16px; }
+    .state h2   { font-size: 20px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+    .state p    { font-size: 14px; color: #666; line-height: 1.6; }
+
+    .error-msg {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #dc2626;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-header">
+    <div class="logo">🔍</div>
+    <div class="header-text">
+      <h1>Screen Sharing Request</h1>
+      <p>{{TENANT_NAME}}</p>
+    </div>
+  </div>
+
+  <!-- ── Main consent view ─────────────────────────────────────── -->
+  <div class="card-body" id="view-consent">
+    <div class="agent-badge">
+      <div class="agent-avatar">👤</div>
+      <div class="agent-info">
+        <strong>Support Agent</strong>
+        <span>Agent ID: {{AGENT_ID}}</span>
+      </div>
+    </div>
+
+    <div class="what-agent-sees">
+      <h3>What your agent can see</h3>
+      <div class="permission-row">
+        <span class="icon-yes">✓</span>
+        <span>Only your current browser tab and page content</span>
+      </div>
+      <div class="permission-row">
+        <span class="icon-yes">✓</span>
+        <span>Agent can point to items on screen to guide you</span>
+      </div>
+      <div class="permission-row">
+        <span class="icon-no">✗</span>
+        <span>Passwords, card numbers and sensitive fields are hidden</span>
+      </div>
+      <div class="permission-row">
+        <span class="icon-no">✗</span>
+        <span>Agent cannot see other browser tabs or your device</span>
+      </div>
+      <div class="permission-row">
+        <span class="icon-no">✗</span>
+        <span>Agent cannot control your browser without a separate request</span>
+      </div>
+    </div>
+
+    <p class="privacy-note">
+      You can end this session at any time by closing this tab or clicking
+      "End Session" in your browser. The session automatically ends after 2 hours
+      or 10 minutes of inactivity.
+    </p>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <div class="btn-group">
+      <button class="btn btn-decline" id="btn-decline">Decline</button>
+      <button class="btn btn-allow"   id="btn-allow">Allow Screen Sharing</button>
+    </div>
+  </div>
+
+  <!-- ── Approved state ────────────────────────────────────────── -->
+  <div class="card-body state" id="view-approved">
+    <div class="state-icon">✅</div>
+    <h2>Session Started</h2>
+    <p>
+      Your agent can now see your screen.<br/><br/>
+      Switch back to your browser and continue — your agent will guide you from there.<br/><br/>
+      You'll see a small banner at the top of the page while the session is active.
+    </p>
+  </div>
+
+  <!-- ── Declined state ────────────────────────────────────────── -->
+  <div class="card-body state" id="view-declined">
+    <div class="state-icon">👋</div>
+    <h2>Screen Sharing Declined</h2>
+    <p>No problem — your agent has been notified. You can close this tab.</p>
+  </div>
+
+  <!-- ── Error state ───────────────────────────────────────────── -->
+  <div class="card-body state" id="view-error">
+    <div class="state-icon">⚠️</div>
+    <h2>Something went wrong</h2>
+    <p id="error-detail">Unable to process your request. Please try again or contact support.</p>
+  </div>
+</div>
+
+<script>
+  const SESSION_ID  = '{{SESSION_ID}}';
+  const CUSTOMER_ID = '{{CUSTOMER_ID}}';
+
+  document.getElementById('btn-allow').addEventListener('click', handleAllow);
+  document.getElementById('btn-decline').addEventListener('click', handleDecline);
+
+  function setButtons(disabled) {
+    document.getElementById('btn-allow').disabled   = disabled;
+    document.getElementById('btn-decline').disabled = disabled;
+  }
+
+  function showView(id) {
+    document.getElementById('view-consent').style.display  = 'none';
+    document.getElementById('view-approved').classList.remove('visible');
+    document.getElementById('view-declined').classList.remove('visible');
+    document.getElementById('view-error').classList.remove('visible');
+    document.getElementById(id).classList.add('visible');
+    document.getElementById(id).style.display = 'block';
+  }
+
+  async function handleAllow() {
+    setButtons(true);
+    document.getElementById('error-msg').style.display = 'none';
+
+    try {
+      const res = await fetch(`/consent/${SESSION_ID}/approve`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ customerId: CUSTOMER_ID }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      // Store the customer token so the SDK on the original tab can pick it up.
+      // The SDK listens for storage events across same-origin tabs.
+      try {
+        localStorage.setItem(`cobrowse_token_${SESSION_ID}`, data.customerToken);
+        localStorage.setItem(`cobrowse_active_session`, SESSION_ID);
+      } catch {}
+
+      showView('view-approved');
+    } catch (err) {
+      setButtons(false);
+      const msg = document.getElementById('error-msg');
+      msg.textContent = err.message;
+      msg.style.display = 'block';
+    }
+  }
+
+  async function handleDecline() {
+    setButtons(true);
+    try {
+      await fetch(`/consent/${SESSION_ID}/decline`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ customerId: CUSTOMER_ID }),
+      });
+    } catch {}
+    showView('view-declined');
+  }
+</script>
+
+</body>
+</html>

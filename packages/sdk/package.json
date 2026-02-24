@@ -1,0 +1,20 @@
+{
+  "name": "@cobrowse/sdk",
+  "version": "1.0.0",
+  "description": "CoBrowse customer SDK — embeds on client websites for DOM capture and relay",
+  "main": "src/index.js",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js --watch"
+  },
+  "dependencies": {
+    "rrweb": "^2.0.0-alpha.17",
+    "ably": "^2.6.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

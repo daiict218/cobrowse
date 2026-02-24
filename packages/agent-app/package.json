@@ -1,0 +1,8 @@
+{
+  "name": "@cobrowse/agent-app",
+  "version": "1.0.0",
+  "description": "CoBrowse agent demo app — simulates CRM side (Care Consult panel)",
+  "scripts": {
+    "start": "npx serve . -p 3002 --cors"
+  }
+}
