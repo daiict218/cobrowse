@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_ENV: test
+  ABLY_API_KEY: test:fake_ably_key_for_ci
+  TOKEN_SECRET: ci-test-secret-that-is-long-enough-32chars
+  DATABASE_URL: postgresql://cobrowse:cobrowse_dev@localhost:5432/cobrowse
+
+jobs:
+  test-server:
+    name: Server Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cobrowse
+          POSTGRES_PASSWORD: cobrowse_dev
+          POSTGRES_DB: cobrowse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cobrowse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run migrations
+        run: npm run db:migrate
+
+      - name: Run server tests
+        run: npm test --workspace=packages/server
+
+      - name: Run server tests with coverage
+        run: npm run test:coverage --workspace=packages/server
+        if: github.event_name == 'pull_request'
+
+  test-sdk:
+    name: SDK Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run SDK tests
+        run: npm test --workspace=packages/sdk
+
+      - name: Run SDK tests with coverage
+        run: npm run test:coverage --workspace=packages/sdk
+        if: github.event_name == 'pull_request'
+
+  build-sdk:
+    name: Build SDK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build SDK bundle
+        run: npm run build:sdk

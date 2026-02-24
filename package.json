@@ -11,7 +11,9 @@
     "build:sdk": "npm run build --workspace=packages/sdk",
     "db:migrate": "npm run db:migrate --workspace=packages/server",
     "db:seed": "npm run db:seed --workspace=packages/server",
-    "start": "npm run start --workspace=packages/server"
+    "start": "npm run start --workspace=packages/server",
+    "test": "npm run test --workspace=packages/server && npm run test --workspace=packages/sdk",
+    "test:coverage": "npm run test:coverage --workspace=packages/server && npm run test:coverage --workspace=packages/sdk"
   },
   "engines": {
     "node": ">=18.0.0"
