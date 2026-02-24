@@ -2,6 +2,10 @@ import buildApp from './app.js';
 import config from './config.js';
 import logger from './utils/logger.js';
 import * as db from './db/index.js';
+import * as timers from './services/timers.js';
+import * as ablyService from './services/ably.js';
+import * as audit from './services/audit.js';
+import { endSession } from './services/session.js';
 
 async function start() {
   // Clean up ALL pending/active sessions from previous server runs.
@@ -20,6 +24,20 @@ async function start() {
     logger.warn({ err }, 'failed to clean up stale sessions (non-fatal)');
   }
 
+  // Initialise distributed session timers (BullMQ when CACHE_DRIVER=redis,
+  // in-process setTimeout otherwise). Callbacks avoid circular deps.
+  timers.init({
+    endSession,
+    publishIdleWarning: async (tenantId, sessionId, secondsRemaining) => {
+      await ablyService.publishSysEvent(tenantId, sessionId, 'session.idle_warned', {
+        secondsRemaining,
+      });
+    },
+    logAuditEvent: async (params) => {
+      await audit.logEvent(params);
+    },
+  });
+
   const app = await buildApp();
 
   try {
@@ -37,6 +55,7 @@ async function start() {
 // Graceful shutdown — close DB pool and Ably connections cleanly
 async function shutdown(signal) {
   logger.info({ signal }, 'Shutting down…');
+  await timers.shutdown();
   await db.end();
   process.exit(0);
 }
