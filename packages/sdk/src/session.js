@@ -1,5 +1,6 @@
 import { Transport } from './transport.js';
 import { Capture } from './capture.js';
+import { Navigation } from './navigation.js';
 import * as indicator from './indicator.js';
 import { log } from './logger.js';
 
@@ -33,6 +34,7 @@ class Session {
     this._tenantId  = null;
     this._transport = null;
     this._capture   = null;
+    this._navigation = null;
     this._maskingRules = null;
 
     // Ably client for the invite channel (pre-session)
@@ -319,12 +321,20 @@ class Session {
         // are streamed via Ably for live replay.
         this._transport.enqueue(event);
       },
-      onUrlChange: (url) => this._reportUrlChange(url),
     });
 
     log.debug('[CoBrowse] calling rrweb.record()...');
     this._capture.start();
     log.debug('[CoBrowse] rrweb.record() called. snapshotPosted=', snapshotPosted);
+
+    // Start SPA navigation detection — triggers checkpoint snapshot + URL reporting
+    this._navigation = new Navigation({
+      onNavigate: (url) => {
+        this._capture?.triggerCheckpoint();
+        this._reportUrlChange(url);
+      },
+    });
+    this._navigation.start();
 
     // Connect Ably transport in background (non-blocking)
     // Transport buffers events enqueued before connection; flushes them once attached.
@@ -480,6 +490,8 @@ class Session {
   // ─── Cleanup ──────────────────────────────────────────────────────────────────
 
   _cleanup(reason) {
+    this._navigation?.stop();
+    this._navigation = null;
     this._capture?.stop();
     this._transport?.disconnect();
     indicator.remove();
