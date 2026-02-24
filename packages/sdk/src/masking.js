@@ -89,8 +89,12 @@ function _deepRedact(obj, patterns) {
     return obj.map((item) => _deepRedact(item, patterns));
   }
   if (obj && typeof obj === 'object') {
-    const out = {};
+    const out = Object.create(null); // no prototype chain — prevents prototype pollution
     for (const key of Object.keys(obj)) {
+      // Block dangerous keys that could pollute prototypes
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        continue;
+      }
       // Never redact structural rrweb keys — only data/value fields
       if (key === 'type' || key === 'id' || key === 'timestamp') {
         out[key] = obj[key];

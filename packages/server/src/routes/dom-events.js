@@ -42,8 +42,8 @@ async function domEventsRoutes(fastify) {
     let tokenPayload;
     try {
       tokenPayload = verifyCustomerToken(customerToken);
-    } catch (err) {
-      throw new UnauthorizedError(`Invalid customer token: ${err.message}`);
+    } catch {
+      throw new UnauthorizedError('Invalid or expired authentication token');
     }
 
     if (tokenPayload.sessionId !== sessionId) {
@@ -71,7 +71,7 @@ async function domEventsRoutes(fastify) {
       querystring: {
         type: 'object',
         properties: {
-          since: { type: 'string', default: '0' },
+          since: { type: 'string', pattern: '^\\d{1,7}$', default: '0' },
         },
       },
     },

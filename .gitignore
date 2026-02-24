@@ -21,6 +21,9 @@ logs/
 *.swo
 .claude/
 
+# Coverage output
+coverage/
+
 # Build artifacts (SDK is rebuilt on deploy)
 # Keep cobrowse.js + cobrowse.min.js committed so local dev works without build step
 # packages/server/public/sdk/cobrowse.js

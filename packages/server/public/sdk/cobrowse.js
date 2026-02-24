@@ -10088,6 +10088,7 @@ var CoBrowse = (() => {
   var ABLY_BATCH_INTERVAL_MS = 80;
   var ABLY_MAX_BATCH_SIZE = 50;
   var HTTP_FLUSH_INTERVAL_MS = 100;
+  var MAX_QUEUE_SIZE = 1e4;
   var Transport = class {
     constructor({ serverUrl, sessionId, customerToken, onCtrl, onSys }) {
       this._serverUrl = serverUrl;
@@ -10141,8 +10142,20 @@ var CoBrowse = (() => {
       this._domCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:dom`);
       this._ctrlCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:ctrl`);
       this._sysCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:sys`);
-      this._ctrlCh.subscribe("pointer", (msg) => this._onCtrl({ type: "pointer", ...msg.data }));
-      this._sysCh.subscribe((msg) => this._onSys({ type: msg.name, ...msg.data }));
+      this._ctrlCh.subscribe("pointer", (msg) => {
+        const data = msg.data;
+        if (!data || typeof data !== "object") return;
+        const { x, y } = data;
+        if (typeof x !== "number" || typeof y !== "number") return;
+        if (!isFinite(x) || !isFinite(y)) return;
+        this._onCtrl({ type: "pointer", x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) });
+      });
+      const VALID_SYS_EVENTS = /* @__PURE__ */ new Set(["session.ended", "session.idle_warned", "snapshot.updated", "customer.joined"]);
+      this._sysCh.subscribe((msg) => {
+        if (!VALID_SYS_EVENTS.has(msg.name)) return;
+        const data = msg.data && typeof msg.data === "object" ? msg.data : {};
+        this._onSys({ type: msg.name, ...data });
+      });
       this._ablyReady = true;
       this._startAblyBatchTimer();
     }
@@ -10152,6 +10165,12 @@ var CoBrowse = (() => {
     enqueue(event) {
       this._ablyBatch.push(event);
       this._httpBatch.push(event);
+      if (this._ablyBatch.length > MAX_QUEUE_SIZE) {
+        this._ablyBatch.splice(0, Math.floor(MAX_QUEUE_SIZE * 0.1));
+      }
+      if (this._httpBatch.length > MAX_QUEUE_SIZE) {
+        this._httpBatch.splice(0, Math.floor(MAX_QUEUE_SIZE * 0.1));
+      }
       if (this._ablyReady && this._ablyBatch.length >= ABLY_MAX_BATCH_SIZE) {
         this._flushAbly();
       }
@@ -10251,8 +10270,11 @@ var CoBrowse = (() => {
       return obj.map((item) => _deepRedact(item, patterns));
     }
     if (obj && typeof obj === "object") {
-      const out = {};
+      const out = /* @__PURE__ */ Object.create(null);
       for (const key of Object.keys(obj)) {
+        if (key === "__proto__" || key === "constructor" || key === "prototype") {
+          continue;
+        }
         if (key === "type" || key === "id" || key === "timestamp") {
           out[key] = obj[key];
         } else {
@@ -10300,12 +10322,20 @@ var CoBrowse = (() => {
         // arbitrary CSS selectors (CVV, OTP, phone, account numbers etc).
         maskInputOptions: { password: true },
         maskInputFn: (text, element) => {
-          if (!maskSelector || !element?.matches) return text;
-          try {
-            return element.matches(maskSelector) ? "\u2588\u2588\u2588\u2588" : text;
-          } catch {
-            return text;
+          if (!element?.matches) return text;
+          if (maskSelector) {
+            try {
+              if (element.matches(maskSelector)) return "\u2588\u2588\u2588\u2588";
+            } catch {
+            }
           }
+          const name = (element.name || "").toLowerCase();
+          const id = (element.id || "").toLowerCase();
+          const sensitive = ["card", "cvv", "cvc", "otp", "pin", "ssn", "password", "secret"];
+          for (const term of sensitive) {
+            if (name.includes(term) || id.includes(term)) return "\u2588\u2588\u2588\u2588";
+          }
+          return text;
         },
         // Capture options
         recordCanvas: false,
@@ -10341,20 +10371,30 @@ var CoBrowse = (() => {
   // src/indicator.js
   var BANNER_ID = "__cobrowse_banner__";
   var POINTER_ID = "__cobrowse_pointer__";
+  var _bannerObserver = null;
   function inject() {
     if (document.getElementById(BANNER_ID)) return;
     const host = document.createElement("div");
     host.id = BANNER_ID;
     host.style.cssText = [
-      "position: fixed",
-      "top: 0",
-      "left: 0",
-      "right: 0",
-      "z-index: 2147483647",
+      "position: fixed !important",
+      "top: 0 !important",
+      "left: 0 !important",
+      "right: 0 !important",
+      "z-index: 2147483647 !important",
       "pointer-events: none",
-      'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+      'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      "display: block !important",
+      "visibility: visible !important",
+      "opacity: 1 !important"
     ].join(";");
     document.documentElement.appendChild(host);
+    _bannerObserver = new MutationObserver(() => {
+      if (!document.getElementById(BANNER_ID)) {
+        document.documentElement.appendChild(host);
+      }
+    });
+    _bannerObserver.observe(document.documentElement, { childList: true });
     const shadow = host.attachShadow({ mode: "closed" });
     shadow.innerHTML = `
     <style>
@@ -10404,6 +10444,10 @@ var CoBrowse = (() => {
     return host;
   }
   function remove() {
+    if (_bannerObserver) {
+      _bannerObserver.disconnect();
+      _bannerObserver = null;
+    }
     const el = document.getElementById(BANNER_ID);
     if (el) el.remove();
     removePointer();
@@ -10544,12 +10588,12 @@ var CoBrowse = (() => {
     // activates without needing cross-origin localStorage access.
     _handleActivate({ sessionId, customerToken }) {
       if (this._state === "active") return;
-      console.debug("[CoBrowse] _handleActivate called", { sessionId, hasToken: !!customerToken });
+      console.debug("[CoBrowse] _handleActivate called", { hasSession: !!sessionId, hasToken: !!customerToken });
       document.getElementById("__cobrowse_consent__")?.remove();
       this._sessionId = sessionId;
       if (!this._tenantId && customerToken) {
         this._tenantId = this._extractTenantFromToken(customerToken);
-        console.debug("[CoBrowse] resolved tenantId from token:", this._tenantId);
+        console.debug("[CoBrowse] resolved tenantId from token");
       }
       try {
         sessionStorage.setItem(`cobrowse_token_${sessionId}`, customerToken);
@@ -10647,7 +10691,7 @@ var CoBrowse = (() => {
         console.warn("[CoBrowse] _startCapture called while already active \u2014 ignoring");
         return;
       }
-      console.debug("[CoBrowse] _startCapture: starting", { sessionId: this._sessionId, tenantId: this._tenantId });
+      console.debug("[CoBrowse] _startCapture: starting");
       this._setState("active");
       this._transport = new Transport({
         serverUrl: this._serverUrl,
@@ -10676,7 +10720,7 @@ var CoBrowse = (() => {
             const events = metaEvent ? [metaEvent, event] : [event];
             if (!snapshotPosted) {
               snapshotPosted = true;
-              console.debug("[CoBrowse] posting initial snapshot, count=", events.length, "sessionId=", this._sessionId);
+              console.debug("[CoBrowse] posting initial snapshot, count=", events.length);
             } else {
               console.debug("[CoBrowse] re-posting snapshot on navigation, count=", events.length);
             }
@@ -10693,7 +10737,7 @@ var CoBrowse = (() => {
       console.debug("[CoBrowse] calling rrweb.record()...");
       this._capture.start();
       console.debug("[CoBrowse] rrweb.record() called. snapshotPosted=", snapshotPosted);
-      console.debug("[CoBrowse] connecting transport, tenantId=", this._tenantId);
+      console.debug("[CoBrowse] connecting transport");
       this._transport.connect(this._tenantId).then(() => console.debug("[CoBrowse] Transport connected")).catch((err) => console.error("[CoBrowse] Transport connect failed:", err.message));
       inject();
       onEndClick(() => this._endByCustomer());
@@ -10771,8 +10815,9 @@ var CoBrowse = (() => {
     // Ably 'activate' events can be missed if the SDK subscribes after the event
     // was published. This polls the server every 2 seconds as a reliable fallback.
     _pollForActivation() {
-      const MAX_POLLS = 45;
+      const MAX_POLLS = 30;
       let attempts = 0;
+      let interval = 2e3;
       const poll = async () => {
         if (this._state === "active" || this._state === "ended") return;
         if (++attempts > MAX_POLLS) return;
@@ -10799,7 +10844,8 @@ var CoBrowse = (() => {
           }
         } catch {
         }
-        setTimeout(poll, 2e3);
+        interval = Math.min(interval * 1.5, 15e3);
+        setTimeout(poll, interval);
       };
       setTimeout(poll, 2e3);
     }
@@ -10875,6 +10921,9 @@ var CoBrowse = (() => {
       if (!serverUrl || !publicKey || !customerId) {
         throw new Error("[CoBrowse] serverUrl, publicKey, and customerId are required");
       }
+      if (typeof window !== "undefined" && !serverUrl.startsWith("https://") && !serverUrl.includes("localhost") && !serverUrl.includes("127.0.0.1")) {
+        console.warn("[CoBrowse] WARNING: serverUrl uses HTTP. Tokens and session data are sent unencrypted. Use HTTPS in production.");
+      }
       const maskingRules = await _fetchMaskingRules(serverUrl, publicKey);
       _session = new Session({
         serverUrl,
@@ -10923,16 +10972,22 @@ var CoBrowse = (() => {
       return _session?._state || "idle";
     }
   };
+  var FALLBACK_MASKING_RULES = {
+    selectors: [],
+    maskTypes: ["password"],
+    patterns: []
+  };
   async function _fetchMaskingRules(serverUrl, publicKey) {
     try {
       const res = await fetch(`${serverUrl}/api/v1/public/masking-rules`, {
         headers: { "X-CB-Public-Key": publicKey }
       });
-      if (!res.ok) return {};
+      if (!res.ok) return FALLBACK_MASKING_RULES;
       const data = await res.json();
-      return data.maskingRules || {};
+      return data.maskingRules || FALLBACK_MASKING_RULES;
     } catch {
-      return {};
+      console.warn("[CoBrowse] Could not fetch masking rules, using built-in defaults");
+      return FALLBACK_MASKING_RULES;
     }
   }
   var src_default = CoBrowse;

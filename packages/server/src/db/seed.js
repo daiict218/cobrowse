@@ -30,7 +30,7 @@ async function seed() {
         'Demo Tenant (Insurance)',
         hashApiKey(secretKey),
         hashApiKey(publicKey),
-        ['localhost', 'localhost:3001', '127.0.0.1', '127.0.0.1:3001', '*'],
+        ['localhost', 'localhost:3001', 'localhost:3002', 'localhost:4000', '127.0.0.1', '127.0.0.1:3001'],
         JSON.stringify({
           selectors: [
             'input[name="card"]',
@@ -52,30 +52,40 @@ async function seed() {
 
     const tenant = result.rows[0];
 
+    // Only print keys in local development — never in production/CI logs
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT;
+
     console.log('\n───────────────────────────────────────────────────');
     console.log('  CoBrowse Demo Tenant Created');
     console.log('───────────────────────────────────────────────────');
     console.log(`  Tenant ID   : ${tenant.id}`);
     console.log(`  Name        : ${tenant.name}`);
-    console.log('');
-    console.log('  ⚠️  These keys are shown ONCE. Copy them now.');
-    console.log('');
-    console.log(`  SECRET KEY  : ${secretKey}`);
-    console.log(`  (used by the agent app and server-to-server calls)`);
-    console.log('');
-    console.log(`  PUBLIC KEY  : ${publicKey}`);
-    console.log(`  (embedded in the customer-app SDK config)`);
-    console.log('───────────────────────────────────────────────────');
-    console.log('');
-    console.log('  Next steps (local dev):');
-    console.log('  1. Copy SECRET KEY → packages/agent-app/app.js  (CONFIG.secretKey)');
-    console.log('  2. Copy PUBLIC KEY → packages/customer-app/app.js  (CONFIG.publicKey)');
-    console.log('  3. Run: npm start');
-    console.log('');
-    console.log('  Next steps (Railway / hosted demo):');
-    console.log('  Set these env vars in your hosting provider, then redeploy:');
-    console.log(`  DEMO_SECRET_KEY = ${secretKey}`);
-    console.log(`  DEMO_PUBLIC_KEY = ${publicKey}`);
+
+    if (isProduction) {
+      console.log('');
+      console.log('  Keys generated but NOT printed (production mode).');
+      console.log('  Set DEMO_SECRET_KEY and DEMO_PUBLIC_KEY env vars and redeploy.');
+    } else {
+      console.log('');
+      console.log('  ⚠️  These keys are shown ONCE. Copy them now.');
+      console.log('');
+      console.log(`  SECRET KEY  : ${secretKey}`);
+      console.log(`  (used by the agent app and server-to-server calls)`);
+      console.log('');
+      console.log(`  PUBLIC KEY  : ${publicKey}`);
+      console.log(`  (embedded in the customer-app SDK config)`);
+      console.log('───────────────────────────────────────────────────');
+      console.log('');
+      console.log('  Next steps (local dev):');
+      console.log('  1. Copy SECRET KEY → packages/agent-app/app.js  (CONFIG.secretKey)');
+      console.log('  2. Copy PUBLIC KEY → packages/customer-app/app.js  (CONFIG.publicKey)');
+      console.log('  3. Run: npm start');
+      console.log('');
+      console.log('  Next steps (Railway / hosted demo):');
+      console.log('  Set these env vars in your hosting provider, then redeploy:');
+      console.log(`  DEMO_SECRET_KEY = ${secretKey}`);
+      console.log(`  DEMO_PUBLIC_KEY = ${publicKey}`);
+    }
     console.log('');
   } finally {
     await pool.end();

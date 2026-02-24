@@ -149,12 +149,25 @@ async function recordConsent({ sessionId, customerId }) {
     return { customerToken, session };
   }
 
-  // Transition to active
+  // Atomic transition to active — WHERE clause prevents double-consent race condition.
+  // If two concurrent requests both pass the status checks above, only one UPDATE
+  // will match the WHERE condition (status = 'pending'). The other gets rowCount 0.
   const updated = await db.query(
     `UPDATE sessions SET status = 'active', customer_joined_at = NOW()
-     WHERE id = $1 RETURNING *`,
-    [sessionId]
+     WHERE id = $1 AND status = 'pending' AND customer_id = $2
+     RETURNING *`,
+    [sessionId, customerId]
   );
+
+  if (!updated.rowCount) {
+    // Another request won the race — re-read and return idempotently
+    const recheck = await db.query(`SELECT * FROM sessions WHERE id = $1`, [sessionId]);
+    if (recheck.rows[0]?.status === 'active') {
+      const customerToken = generateCustomerToken(sessionId, customerId, session.tenant_id);
+      return { customerToken, session: recheck.rows[0] };
+    }
+    throw new ForbiddenError('Session is no longer available for consent');
+  }
 
   await audit.logEvent({
     sessionId,

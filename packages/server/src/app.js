@@ -48,6 +48,9 @@ async function buildApp() {
         scriptSrcAttr: ["'unsafe-inline'"],          // allow onclick handlers in demo HTML
         styleSrc:   ["'self'", "'unsafe-inline'"],
         connectSrc: ["'self'", '*.ably.io', '*.ably.com', 'realtime.ably.io', 'realtime.ably.com', 'ws:', 'wss:'],
+        frameAncestors: ["'self'"],                  // prevent clickjacking via iframes
+        formAction: ["'self'"],                      // restrict form submissions
+        baseUri: ["'self'"],                         // prevent <base> tag hijacking
         upgradeInsecureRequests: config.isDev ? null : [],  // disable on HTTP localhost, enable in prod
       },
     },
@@ -93,10 +96,13 @@ async function buildApp() {
   // ─── Rate limiting ─────────────────────────────────────────────────────────────
   await app.register(fastifyRateLimit, {
     global:   true,
-    max:      200,
+    max:      100,           // tightened from 200 — per IP per minute
     timeWindow: '1 minute',
-    // Higher limit for the Ably auth endpoint (SDK polls this on reconnect)
-    keyGenerator: (request) => request.ip,
+    keyGenerator: (request) => {
+      // Rate limit per tenant when available, otherwise per IP
+      const tenantId = request.tenant?.id;
+      return tenantId ? `${tenantId}:${request.ip}` : request.ip;
+    },
     errorResponseBuilder: () => ({
       error:   'Too Many Requests',
       message: 'Rate limit exceeded. Please slow down.',
@@ -134,12 +140,15 @@ async function buildApp() {
   app.get('/demo/config.js', async (request, reply) => {
     reply.header('Content-Type', 'application/javascript; charset=utf-8');
     reply.header('Cache-Control', 'no-store');
-    return `window.COBROWSE_DEMO_CONFIG = {
-  serverUrl:  window.location.origin,
-  publicKey:  '${process.env.DEMO_PUBLIC_KEY  || ''}',
-  secretKey:  '${process.env.DEMO_SECRET_KEY  || ''}',
-  customerId: 'cust_demo_001',
-};
+    // JSON.stringify safely escapes special characters to prevent XSS via env vars
+    const demoConfig = {
+      serverUrl: null, // set from window.location.origin in client
+      publicKey: process.env.DEMO_PUBLIC_KEY || '',
+      secretKey: process.env.DEMO_SECRET_KEY || '',
+      customerId: 'cust_demo_001',
+    };
+    return `window.COBROWSE_DEMO_CONFIG = ${JSON.stringify(demoConfig)};
+window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
 `;
   });
 
@@ -211,6 +220,13 @@ async function buildApp() {
   // ─── Global error handler ─────────────────────────────────────────────────────
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
+      // Log security-relevant errors (auth failures, forbidden access)
+      if (error.statusCode === 401 || error.statusCode === 403) {
+        logger.warn(
+          { code: error.code, ip: request.ip, method: request.method, url: request.url },
+          'security: auth/authz failure'
+        );
+      }
       reply.code(error.statusCode).send({
         error:   error.code,
         message: error.message,

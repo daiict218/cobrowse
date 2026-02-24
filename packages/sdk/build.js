@@ -47,12 +47,13 @@ const sharedOptions = {
 };
 
 async function build() {
-  // Development build (readable, sourcemaps)
+  // Development build (readable, sourcemaps only in dev — never deploy .map files)
+  const enableSourceMaps = process.env.NODE_ENV !== 'production';
   await esbuild.build({
     ...sharedOptions,
     outfile:    path.join(outDir, 'cobrowse.js'),
     minify:     false,
-    sourcemap:  true,
+    sourcemap:  enableSourceMaps,
   });
 
   // Production build (minified)
