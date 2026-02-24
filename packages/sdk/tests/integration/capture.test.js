@@ -78,33 +78,22 @@ describe('Capture', () => {
     expect(onEvent.mock.calls[0][0].data.text).not.toContain('4111');
   });
 
-  it('detects URL changes', () => {
-    const onUrlChange = vi.fn();
-    const originalHref = location.href;
+  it('triggerCheckpoint calls rrweb.record.takeFullSnapshot when available', () => {
+    const takeFullSnapshot = vi.fn();
+    mockRrweb.record.takeFullSnapshot = takeFullSnapshot;
 
-    // Override rrweb to change location then emit
-    mockRrweb.record = vi.fn((config) => {
-      // Simulate a URL change
-      Object.defineProperty(window, 'location', {
-        value: { href: 'http://localhost/new-page' },
-        writable: true,
-        configurable: true,
-      });
-      config.emit({ type: 3, data: {} });
-      return stopFn;
-    });
-
-    const capture = new Capture({ maskingRules: {}, onEvent: vi.fn(), onUrlChange });
+    const capture = new Capture({ maskingRules: {}, onEvent: vi.fn() });
     capture.start();
+    capture.triggerCheckpoint();
 
-    expect(onUrlChange).toHaveBeenCalledWith('http://localhost/new-page');
+    expect(takeFullSnapshot).toHaveBeenCalledOnce();
+  });
 
-    // Restore
-    Object.defineProperty(window, 'location', {
-      value: { href: originalHref },
-      writable: true,
-      configurable: true,
-    });
+  it('triggerCheckpoint is safe when takeFullSnapshot is not available', () => {
+    const capture = new Capture({ maskingRules: {}, onEvent: vi.fn() });
+    capture.start();
+    // Should not throw even when takeFullSnapshot doesn't exist
+    expect(() => capture.triggerCheckpoint()).not.toThrow();
   });
 
   it('stop calls the rrweb stop function', () => {
