@@ -43,8 +43,10 @@ async function buildApp() {
     // by client websites and the demo apps. Allow this explicitly.
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginEmbedderPolicy: false,
-    // Generate per-request nonces for script-src and style-src.
-    // Access via reply.cspNonce.script / reply.cspNonce.style in route handlers.
+    // Generate per-request nonces. The plugin always adds nonces to BOTH
+    // script-src and style-src. We strip the style nonce below because when
+    // a nonce is present in style-src, browsers ignore 'unsafe-inline' — which
+    // breaks rrweb replay and all inline style="" attributes.
     enableCSPNonces: true,
     contentSecurityPolicy: {
       directives: {
@@ -58,6 +60,23 @@ async function buildApp() {
         upgradeInsecureRequests: config.isDev ? null : [],  // disable on HTTP localhost, enable in prod
       },
     },
+  });
+
+  // Strip the style nonce from the CSP header. @fastify/helmet always injects
+  // nonces into both script-src and style-src, but a nonce in style-src causes
+  // browsers to ignore 'unsafe-inline', breaking rrweb and inline styles.
+  app.addHook('onSend', async (_request, reply, payload) => {
+    const csp = reply.getHeader('content-security-policy');
+    if (csp) {
+      const fixed = csp
+        .split(';')
+        .map((d) => d.trimStart().startsWith('style-src')
+          ? d.replace(/ 'nonce-[A-Za-z0-9+/=]+'/g, '')
+          : d)
+        .join(';');
+      reply.header('content-security-policy', fixed);
+    }
+    return payload;
   });
 
   // ─── CORS ─────────────────────────────────────────────────────────────────────
