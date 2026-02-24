@@ -69,6 +69,26 @@ class RedisCache {
     this._client.on('error', (err) => logger.error({ err }, 'Redis error'));
   }
 
+  /** Ping Redis — returns true if connected and responsive. */
+  async ping() {
+    try {
+      const res = await this._client.ping();
+      return res === 'PONG';
+    } catch {
+      return false;
+    }
+  }
+
+  /** Gracefully close the Redis connection. */
+  async shutdown() {
+    try {
+      await this._client.quit();
+    } catch {
+      // Force disconnect if quit fails (e.g. already disconnected)
+      this._client.disconnect();
+    }
+  }
+
   async get(key) {
     const raw = await this._client.get(key);
     if (raw === null) return null;

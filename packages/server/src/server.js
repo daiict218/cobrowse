@@ -2,10 +2,13 @@ import buildApp from './app.js';
 import config from './config.js';
 import logger from './utils/logger.js';
 import * as db from './db/index.js';
+import cache from './cache/index.js';
 import * as timers from './services/timers.js';
 import * as ablyService from './services/ably.js';
 import * as audit from './services/audit.js';
 import { endSession } from './services/session.js';
+
+let app;
 
 async function start() {
   // Clean up ALL pending/active sessions from previous server runs.
@@ -38,7 +41,7 @@ async function start() {
     },
   });
 
-  const app = await buildApp();
+  app = await buildApp();
 
   try {
     await app.listen({ port: config.server.port, host: config.server.host });
@@ -52,11 +55,51 @@ async function start() {
   }
 }
 
-// Graceful shutdown — close DB pool and Ably connections cleanly
+// ─── Graceful shutdown ────────────────────────────────────────────────────────
+// Order: stop accepting requests → drain timers → close cache → close DB pool
+let shuttingDown = false;
+
 async function shutdown(signal) {
+  if (shuttingDown) return;     // prevent double-shutdown from rapid signals
+  shuttingDown = true;
+
   logger.info({ signal }, 'Shutting down…');
-  await timers.shutdown();
-  await db.end();
+
+  // 1. Stop accepting new HTTP connections, finish in-flight requests
+  if (app) {
+    try {
+      await app.close();
+      logger.info('Fastify server closed');
+    } catch (err) {
+      logger.error({ err }, 'Error closing Fastify server');
+    }
+  }
+
+  // 2. Stop session timers (BullMQ worker + queue, or in-process timers)
+  try {
+    await timers.shutdown();
+  } catch (err) {
+    logger.error({ err }, 'Error shutting down timers');
+  }
+
+  // 3. Close cache (Redis connection if CACHE_DRIVER=redis)
+  if (typeof cache.shutdown === 'function') {
+    try {
+      await cache.shutdown();
+      logger.info('Cache connection closed');
+    } catch (err) {
+      logger.error({ err }, 'Error closing cache connection');
+    }
+  }
+
+  // 4. Close PostgreSQL connection pool (waits for idle connections to drain)
+  try {
+    await db.end();
+    logger.info('Database pool closed');
+  } catch (err) {
+    logger.error({ err }, 'Error closing database pool');
+  }
+
   process.exit(0);
 }
 
