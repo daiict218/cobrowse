@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cobrowse-server
+  namespace: cobrowse
+  labels:
+    app.kubernetes.io/name: cobrowse-server
+    app.kubernetes.io/part-of: cobrowse
+    app.kubernetes.io/component: api
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cobrowse-server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0       # zero-downtime: never kill a pod before the new one is ready
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cobrowse-server
+        app.kubernetes.io/part-of: cobrowse
+        app.kubernetes.io/component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "4000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: cobrowse-server
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      # ─── Init container: run migrations ────────────────────────────────────
+      # Migrations are idempotent (CREATE IF NOT EXISTS). Running in an init
+      # container ensures the schema is up-to-date before any app pod starts.
+      initContainers:
+        - name: migrate
+          image: cobrowse-server:latest    # overridden by overlay / CI
+          command: ["node", "packages/server/src/db/migrate.js"]
+          envFrom:
+            - configMapRef:
+                name: cobrowse-config
+            - secretRef:
+                name: cobrowse-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+
+      containers:
+        - name: server
+          image: cobrowse-server:latest    # overridden by overlay / CI
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: cobrowse-config
+            - secretRef:
+                name: cobrowse-secrets
+
+          # ─── Probes ──────────────────────────────────────────────────────────
+          # Liveness: restart the pod if the process is stuck (always 200 if up)
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Readiness: stop routing traffic if DB or Redis is down
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          # Startup: give the app up to 30s to initialize (migration, BullMQ connect)
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            failureThreshold: 15
+
+          # ─── Resources ───────────────────────────────────────────────────────
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+
+          # ─── Writable dirs for recordings (fs driver) and Node.js cache ────
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /app/data
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: data
+          emptyDir: {}

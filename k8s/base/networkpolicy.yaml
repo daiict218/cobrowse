@@ -1,0 +1,54 @@
+# NetworkPolicy — restrict cobrowse-server pod traffic to only what is needed.
+#
+# Allowed egress:
+#   - PostgreSQL (port 5432) — session state, audit log
+#   - Redis (port 6379) — cache + BullMQ distributed timers
+#   - HTTPS (port 443) — Ably API, S3 uploads
+#   - DNS (port 53) — cluster DNS resolution
+#
+# Allowed ingress:
+#   - HTTP (port 4000) from ingress controller and Prometheus
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cobrowse-server
+  namespace: cobrowse
+  labels:
+    app.kubernetes.io/name: cobrowse-server
+    app.kubernetes.io/part-of: cobrowse
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cobrowse-server
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Allow traffic from ingress controller and Prometheus scraper
+    - ports:
+        - port: 4000
+          protocol: TCP
+
+  egress:
+    # DNS resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+    # PostgreSQL
+    - ports:
+        - port: 5432
+          protocol: TCP
+
+    # Redis
+    - ports:
+        - port: 6379
+          protocol: TCP
+
+    # HTTPS (Ably API, S3, external services)
+    - ports:
+        - port: 443
+          protocol: TCP

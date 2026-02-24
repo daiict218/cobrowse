@@ -1,0 +1,39 @@
+# Ingress — routes external HTTPS traffic to the cobrowse-server Service.
+# Assumes an nginx-ingress controller and cert-manager for TLS.
+# Override spec.rules[].host in the overlay for your environment.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cobrowse-server
+  namespace: cobrowse
+  labels:
+    app.kubernetes.io/name: cobrowse-server
+    app.kubernetes.io/part-of: cobrowse
+  annotations:
+    # TLS via cert-manager
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # WebSocket support (Ably auth + long-poll fallback)
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Max body size for snapshots (rrweb full snapshot can be ~1MB)
+    nginx.ingress.kubernetes.io/proxy-body-size: "5m"
+    # Rate limiting at ingress level (layered with app-level Fastify rate limiter)
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - cobrowse.example.com
+      secretName: cobrowse-tls
+  rules:
+    - host: cobrowse.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cobrowse-server
+                port:
+                  name: http

@@ -1,0 +1,16 @@
+# PodDisruptionBudget — at least 1 pod must always be available during
+# voluntary disruptions (node drain, cluster upgrade, HPA scale-down).
+# Prevents all replicas from being terminated simultaneously.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cobrowse-server
+  namespace: cobrowse
+  labels:
+    app.kubernetes.io/name: cobrowse-server
+    app.kubernetes.io/part-of: cobrowse
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cobrowse-server

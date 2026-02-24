@@ -11,17 +11,32 @@ import { endSession } from './services/session.js';
 let app;
 
 async function start() {
-  // Clean up ALL pending/active sessions from previous server runs.
-  // In-process timers (idle, max-duration) don't survive restarts, so any
-  // leftover sessions would be orphaned. End them to prevent the SDK from
-  // picking up stale sessions via polling.
+  // Clean up stale sessions from previous server runs.
+  //
+  // Single-instance (CACHE_DRIVER=memory): in-process timers don't survive
+  // restarts, so any leftover sessions would be orphaned. End them all.
+  //
+  // Multi-instance (CACHE_DRIVER=redis): BullMQ timers survive in Redis and
+  // are picked up by any pod. We must NOT end all sessions — another pod may
+  // be actively serving them. Only end sessions older than the max duration
+  // that somehow escaped cleanup (belt-and-suspenders).
   try {
-    const { rowCount } = await db.query(
-      `UPDATE sessions SET status = 'ended', ended_at = NOW(), end_reason = 'server_restart'
-       WHERE status IN ('pending', 'active')`
-    );
-    if (rowCount > 0) {
-      logger.info({ count: rowCount }, 'cleaned up stale sessions on startup');
+    let result;
+    if (config.cache.driver === 'redis') {
+      result = await db.query(
+        `UPDATE sessions SET status = 'ended', ended_at = NOW(), end_reason = 'stale_cleanup'
+         WHERE status IN ('pending', 'active')
+           AND created_at < NOW() - INTERVAL '1 minute' * $1`,
+        [config.session.maxDurationMinutes]
+      );
+    } else {
+      result = await db.query(
+        `UPDATE sessions SET status = 'ended', ended_at = NOW(), end_reason = 'server_restart'
+         WHERE status IN ('pending', 'active')`
+      );
+    }
+    if (result.rowCount > 0) {
+      logger.info({ count: result.rowCount, driver: config.cache.driver }, 'cleaned up stale sessions on startup');
     }
   } catch (err) {
     logger.warn({ err }, 'failed to clean up stale sessions (non-fatal)');
