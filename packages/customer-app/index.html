@@ -173,7 +173,7 @@
   <div class="card">
     <div class="card-title">📎 Supporting Documents</div>
 
-    <div class="file-upload" onclick="document.getElementById('file-input').click()">
+    <div class="file-upload" id="file-upload-area">
       <div class="icon">📁</div>
       <p><strong>Click to upload</strong> or drag and drop files here</p>
       <p style="margin-top:4px;font-size:12px;">Photos, receipts, police reports (PDF, JPG, PNG — max 10MB each)</p>
@@ -200,10 +200,10 @@
 
   <!-- ── Form actions ──────────────────────────────────────────────────────── -->
   <div class="btn-group">
-    <button class="btn btn-secondary" onclick="alert('Navigating back…')">← Previous Step</button>
+    <button class="btn btn-secondary" id="btn-prev-step">← Previous Step</button>
     <div style="display:flex;gap:12px;">
-      <button class="btn btn-secondary" onclick="showOtp()">Request OTP</button>
-      <button class="btn btn-primary" onclick="submitClaim()">Continue to Documents →</button>
+      <button class="btn btn-secondary" id="btn-request-otp">Request OTP</button>
+      <button class="btn btn-primary" id="btn-submit-claim">Continue to Documents →</button>
     </div>
   </div>
 
@@ -217,7 +217,7 @@
 
 <!-- Demo config — sets window.COBROWSE_DEMO_CONFIG with server-injected keys.
      Served by the Fastify server; a no-op when opening this file directly. -->
-<script src="/demo/config.js" onerror="window.COBROWSE_DEMO_CONFIG=window.COBROWSE_DEMO_CONFIG||{}"></script>
+<script src="/demo/config.js"></script>
 <!-- rrweb + Ably + CoBrowse SDK — served from the session server (/static/) -->
 <script src="/static/vendor/rrweb.js"></script>
 <script src="/static/vendor/ably.min.js"></script>

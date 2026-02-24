@@ -46,7 +46,7 @@
           placeholder="e.g. conv_456 (Sprinklr conversation ID)" />
       </div>
 
-      <button class="btn btn-primary" id="btn-start" onclick="startSession()">
+      <button class="btn btn-primary" id="btn-start">
         🚀 Start Co-Browse
       </button>
     </div>
@@ -84,7 +84,7 @@
         </div>
       </div>
 
-      <button class="btn btn-danger" id="btn-end" onclick="endSession()">
+      <button class="btn btn-danger" id="btn-end">
         ⏹ End Session
       </button>
     </div>
@@ -124,7 +124,7 @@
 
     <!-- Controls -->
     <div class="pointer-controls" id="pointer-controls" style="display:none;">
-      <div class="icon-btn" id="btn-pointer" onclick="togglePointerMode()">
+      <div class="icon-btn" id="btn-pointer">
         🎯 Pointer: OFF
       </div>
     </div>
@@ -133,7 +133,7 @@
 </div>
 
 <!-- Demo config — sets window.COBROWSE_DEMO_CONFIG with server-injected keys. -->
-<script src="/demo/config.js" onerror="window.COBROWSE_DEMO_CONFIG=window.COBROWSE_DEMO_CONFIG||{}"></script>
+<script src="/demo/config.js"></script>
 <!-- rrweb + Ably served from the session server (/static/) -->
 <script src="/static/vendor/rrweb.js"></script>
 <script src="/static/vendor/ably.min.js"></script>

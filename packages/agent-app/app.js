@@ -430,6 +430,11 @@ function logEvent(type, message) {
   log.scrollTop = log.scrollHeight;
 }
 
+// ─── UI event listeners ───────────────────────────────────────────────────────
+document.getElementById('btn-start').addEventListener('click', startSession);
+document.getElementById('btn-end').addEventListener('click', endSession);
+document.getElementById('btn-pointer').addEventListener('click', togglePointerMode);
+
 // ─── API helper ───────────────────────────────────────────────────────────────
 async function apiCall(method, path, body) {
   const options = {

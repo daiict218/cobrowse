@@ -74,7 +74,8 @@ async function consentRoutes(fastify) {
       .replaceAll('{{AGENT_ID}}',     escapeHtml(session.agent_id))
       .replaceAll('{{TENANT_NAME}}',  escapeHtml(session.tenant_name ?? 'CoBrowse'))
       .replaceAll('{{STATUS}}',       escapeHtml(session.status))
-      .replaceAll('{{CSRF_TOKEN}}',   csrfToken);
+      .replaceAll('{{CSRF_TOKEN}}',   csrfToken)
+      .replaceAll('{{NONCE}}',        reply.cspNonce?.script ?? '');
 
     reply.type('text/html').send(html);
   });

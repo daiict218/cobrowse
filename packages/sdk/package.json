@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "ably": "^2.6.0",
-    "rrweb": "^2.0.0-alpha.17"
+    "rrweb": "2.0.0-alpha.17"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
