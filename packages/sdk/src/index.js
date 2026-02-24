@@ -1,4 +1,5 @@
 import { Session } from './session.js';
+import { log, setLevel } from './logger.js';
 
 /**
  * CoBrowse SDK — public API
@@ -31,9 +32,11 @@ const CoBrowse = {
    * @param {string} options.customerId  — Unique customer identifier
    * @param {Function} [options.onStateChange] — State change callback
    */
-  async init({ serverUrl, publicKey, customerId, onStateChange }) {
+  async init({ serverUrl, publicKey, customerId, onStateChange, logLevel }) {
+    if (logLevel) setLevel(logLevel);
+
     if (_session) {
-      console.warn('[CoBrowse] Already initialised. Call CoBrowse.destroy() first.');
+      log.warn('[CoBrowse] Already initialised. Call CoBrowse.destroy() first.');
       return;
     }
 
@@ -46,7 +49,7 @@ const CoBrowse = {
         !serverUrl.startsWith('https://') &&
         !serverUrl.includes('localhost') &&
         !serverUrl.includes('127.0.0.1')) {
-      console.warn('[CoBrowse] WARNING: serverUrl uses HTTP. Tokens and session data are sent unencrypted. Use HTTPS in production.');
+      log.warn('[CoBrowse] WARNING: serverUrl uses HTTP. Tokens and session data are sent unencrypted. Use HTTPS in production.');
     }
 
     // Fetch tenant masking rules before starting capture
@@ -68,7 +71,7 @@ const CoBrowse = {
     // Initialise plugins
     _plugins.forEach((p) => p.init?.(_session));
 
-    console.info('[CoBrowse] Initialised. Customer ID:', customerId);
+    log.info('[CoBrowse] Initialised. Customer ID:', customerId);
   },
 
   /**
@@ -126,7 +129,7 @@ async function _fetchMaskingRules(serverUrl, publicKey) {
     return data.maskingRules || FALLBACK_MASKING_RULES;
   } catch {
     // Fail-closed: use built-in defaults so masking is never completely disabled
-    console.warn('[CoBrowse] Could not fetch masking rules, using built-in defaults');
+    log.warn('[CoBrowse] Could not fetch masking rules, using built-in defaults');
     return FALLBACK_MASKING_RULES;
   }
 }
