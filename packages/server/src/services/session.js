@@ -2,6 +2,7 @@ import * as db from '../db/index.js';
 import cache from '../cache/index.js';
 import * as ablyService from './ably.js';
 import * as audit from './audit.js';
+import * as timers from './timers.js';
 import { generateCustomerToken } from '../utils/token.js';
 import { NotFoundError, ConflictError, ForbiddenError } from '../utils/errors.js';
 import config from '../config.js';
@@ -15,18 +16,13 @@ import logger from '../utils/logger.js';
  *   [customer consents] → active
  *   [any party ends / timeout] → ended
  *
- * Idle timeout and max-duration enforcement are handled by per-session timers
- * stored in the cache. In production with multiple server instances, move
- * these timers to a Redis-backed job queue (e.g. BullMQ).
+ * Idle timeout and max-duration enforcement are handled by the timers module
+ * (timers.js). CACHE_DRIVER=memory uses in-process setTimeout;
+ * CACHE_DRIVER=redis uses BullMQ delayed jobs (distributed, survives restarts).
  */
 
 const ACTIVE_SESSION_KEY = (tenantId, agentId) => `active:${tenantId}:${agentId}`;
-const IDLE_TIMER_KEY     = (sessionId) => `idle_timer:${sessionId}`;
 const SNAPSHOT_KEY       = (sessionId) => `snapshot:${sessionId}`;
-
-// In-process timer handles (session timers). Not persisted across restarts.
-// Production: replace with a distributed scheduler.
-const _timers = new Map();
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
@@ -96,7 +92,7 @@ async function createSession({ tenantId, agentId, customerId, channelRef, server
   );
 
   // Start the overall session max-duration timer
-  _scheduleMaxDuration(session.id, tenantId);
+  timers.scheduleMaxDuration(session.id, tenantId);
 
   const inviteUrl = `${serverBaseUrl}/consent/${session.id}`;
 
@@ -189,7 +185,7 @@ async function recordConsent({ sessionId, customerId }) {
   await ablyService.publishConsentApproved(session.tenant_id, customerId, sessionId, customerToken);
 
   // Start the idle timer now that both parties are expected to be active
-  _resetIdleTimer(sessionId, session.tenant_id);
+  timers.resetIdleTimer(sessionId, session.tenant_id);
 
   logger.info({ sessionId, customerId }, 'customer consented — session active');
 
@@ -239,7 +235,7 @@ async function recordAgentJoined(sessionId, tenantId, agentId) {
  * Resets the idle countdown for this session.
  */
 function touchSession(sessionId, tenantId) {
-  _resetIdleTimer(sessionId, tenantId);
+  timers.touchSession(sessionId, tenantId);
 }
 
 // ─── URL Change Tracking ──────────────────────────────────────────────────────
@@ -302,7 +298,7 @@ async function endSession(sessionId, tenantId, reason = 'agent') {
   await cache.del(SNAPSHOT_KEY(sessionId));
 
   // Cancel timers
-  _clearTimers(sessionId);
+  timers.clearTimers(sessionId);
 
   // Notify both parties
   await ablyService.publishSysEvent(tenantId, sessionId, 'session.ended', { reason });
@@ -316,55 +312,6 @@ async function endSession(sessionId, tenantId, reason = 'agent') {
   });
 
   logger.info({ sessionId, tenantId, reason }, 'session ended');
-}
-
-// ─── Timers (per-process, replace with distributed scheduler in production) ───
-
-function _scheduleMaxDuration(sessionId, tenantId) {
-  const ms = config.session.maxDurationMinutes * 60 * 1000;
-  const timer = setTimeout(() => {
-    endSession(sessionId, tenantId, 'max_duration').catch((err) =>
-      logger.error({ err, sessionId }, 'max duration end failed')
-    );
-  }, ms);
-  timer.unref();
-  _timers.set(`max:${sessionId}`, timer);
-}
-
-function _resetIdleTimer(sessionId, tenantId) {
-  // Clear existing idle timer
-  const existingIdle = _timers.get(`idle:${sessionId}`);
-  if (existingIdle) clearTimeout(existingIdle);
-
-  const warnMs  = (config.session.idleTimeoutMinutes * 60 - 60) * 1000; // 1 min warning
-  const endMs   = config.session.idleTimeoutMinutes * 60 * 1000;
-
-  // Warn at (timeout - 1 minute)
-  const warnTimer = setTimeout(async () => {
-    await ablyService.publishSysEvent(tenantId, sessionId, 'session.idle_warned', {
-      secondsRemaining: 60,
-    });
-    await audit.logEvent({ sessionId, tenantId, eventType: 'session.idle_warned' });
-  }, warnMs > 0 ? warnMs : 0);
-  warnTimer.unref();
-
-  // End at timeout
-  const idleTimer = setTimeout(() => {
-    endSession(sessionId, tenantId, 'idle_timeout').catch((err) =>
-      logger.error({ err, sessionId }, 'idle timeout end failed')
-    );
-  }, endMs);
-  idleTimer.unref();
-
-  _timers.set(`idle:${sessionId}`, idleTimer);
-  _timers.set(`warn:${sessionId}`, warnTimer);
-}
-
-function _clearTimers(sessionId) {
-  for (const key of [`idle:${sessionId}`, `warn:${sessionId}`, `max:${sessionId}`]) {
-    const t = _timers.get(key);
-    if (t) { clearTimeout(t); _timers.delete(key); }
-  }
 }
 
 // ─── DOM Event Buffer (HTTP relay for when Ably is blocked) ──────────────────
