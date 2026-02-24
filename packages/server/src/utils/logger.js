@@ -1,7 +1,5 @@
-'use strict';
-
-const pino = require('pino');
-const config = require('../config');
+import pino from 'pino';
+import config from '../config.js';
 
 // Structured logger with PII scrubbing.
 // In production, pipe output to your log aggregator (Datadog, CloudWatch, etc.)
@@ -31,4 +29,4 @@ const logger = pino({
   },
 });
 
-module.exports = logger;
+export default logger;

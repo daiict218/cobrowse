@@ -1,13 +1,11 @@
-'use strict';
-
-const db = require('../db');
-const cache = require('../cache');
-const ablyService = require('./ably');
-const audit = require('./audit');
-const { generateCustomerToken } = require('../utils/token');
-const { NotFoundError, ConflictError, ForbiddenError } = require('../utils/errors');
-const config = require('../config');
-const logger = require('../utils/logger');
+import * as db from '../db/index.js';
+import cache from '../cache/index.js';
+import * as ablyService from './ably.js';
+import * as audit from './audit.js';
+import { generateCustomerToken } from '../utils/token.js';
+import { NotFoundError, ConflictError, ForbiddenError } from '../utils/errors.js';
+import config from '../config.js';
+import logger from '../utils/logger.js';
 
 /**
  * Session service — owns the lifecycle of every co-browse session.
@@ -390,7 +388,7 @@ async function getDomEvents(sessionId, since) {
   return { events, nextSeq: buffer.length };
 }
 
-module.exports = {
+export {
   createSession,
   getSession,
   recordConsent,

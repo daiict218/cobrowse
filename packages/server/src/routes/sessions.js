@@ -1,8 +1,6 @@
-'use strict';
-
-const sessionService = require('../services/session');
-const { authenticateSecret } = require('../middleware/auth');
-const { ValidationError } = require('../utils/errors');
+import * as sessionService from '../services/session.js';
+import { authenticateSecret } from '../middleware/auth.js';
+import { ValidationError } from '../utils/errors.js';
 
 /**
  * Session routes — agent-facing.
@@ -95,4 +93,4 @@ async function sessionsRoutes(fastify) {
   });
 }
 
-module.exports = sessionsRoutes;
+export default sessionsRoutes;

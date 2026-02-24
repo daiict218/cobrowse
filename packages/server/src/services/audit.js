@@ -1,7 +1,5 @@
-'use strict';
-
-const db = require('../db');
-const logger = require('../utils/logger');
+import * as db from '../db/index.js';
+import logger from '../utils/logger.js';
 
 /**
  * Audit service — writes immutable event records to session_events.
@@ -84,4 +82,4 @@ async function exportTenantEvents(tenantId, from, to, limit = 10_000) {
   return result.rows;
 }
 
-module.exports = { logEvent, getSessionEvents, exportTenantEvents };
+export { logEvent, getSessionEvents, exportTenantEvents };

@@ -1,9 +1,7 @@
-'use strict';
-
-const sessionService = require('../services/session');
-const { authenticateSecret } = require('../middleware/auth');
-const { verifyCustomerToken } = require('../utils/token');
-const { UnauthorizedError } = require('../utils/errors');
+import * as sessionService from '../services/session.js';
+import { authenticateSecret } from '../middleware/auth.js';
+import { verifyCustomerToken } from '../utils/token.js';
+import { UnauthorizedError } from '../utils/errors.js';
 
 /**
  * DOM Events relay routes — HTTP fallback for when Ably WebSocket is blocked.
@@ -89,4 +87,4 @@ async function domEventsRoutes(fastify) {
   });
 }
 
-module.exports = domEventsRoutes;
+export default domEventsRoutes;

@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Client-side masking engine.
  *
@@ -105,4 +103,4 @@ function _deepRedact(obj, patterns) {
   return obj;
 }
 
-module.exports = { buildMaskSelector, sanitiseEvent };
+export { buildMaskSelector, sanitiseEvent };

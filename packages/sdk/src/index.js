@@ -1,6 +1,4 @@
-'use strict';
-
-const { Session } = require('./session');
+import { Session } from './session.js';
 
 /**
  * CoBrowse SDK — public API
@@ -117,6 +115,6 @@ async function _fetchMaskingRules(serverUrl, publicKey) {
   }
 }
 
-// Export for both CommonJS (bundled SDK) and browser global
-if (typeof module !== 'undefined') module.exports = CoBrowse;
+// Export for both ESM (bundled SDK) and browser global
+export default CoBrowse;
 if (typeof window !== 'undefined') window.CoBrowse = CoBrowse;

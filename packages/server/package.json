@@ -2,6 +2,7 @@
   "name": "@cobrowse/server",
   "version": "1.0.0",
   "description": "CoBrowse session server — multi-tenant relay, session lifecycle, audit",
+  "type": "module",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

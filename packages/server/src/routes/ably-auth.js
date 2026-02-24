@@ -1,12 +1,9 @@
-'use strict';
-
-const ablyService = require('../services/ably');
-const sessionService = require('../services/session');
-const { authenticate, authenticateSecret } = require('../middleware/auth');
-const { verifyCustomerToken } = require('../utils/token');
-const { UnauthorizedError, ValidationError } = require('../utils/errors');
-const db = require('../db');
-const { hashApiKey } = require('../utils/token');
+import * as ablyService from '../services/ably.js';
+import * as sessionService from '../services/session.js';
+import { authenticate, authenticateSecret } from '../middleware/auth.js';
+import { verifyCustomerToken, hashApiKey } from '../utils/token.js';
+import { UnauthorizedError, ValidationError } from '../utils/errors.js';
+import * as db from '../db/index.js';
 
 /**
  * Ably token auth endpoint.
@@ -139,4 +136,4 @@ async function ablyAuthRoutes(fastify) {
   });
 }
 
-module.exports = ablyAuthRoutes;
+export default ablyAuthRoutes;

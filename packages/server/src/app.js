@@ -1,12 +1,17 @@
-'use strict';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Fastify from 'fastify';
+import fastifyHelmet from '@fastify/helmet';
+import fastifyCors from '@fastify/cors';
+import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
+import config from './config.js';
+import logger from './utils/logger.js';
+import * as db from './db/index.js';
+import { AppError } from './utils/errors.js';
 
-const path = require('path');
-const Fastify = require('fastify');
-const fs = require('fs');
-const config = require('./config');
-const logger = require('./utils/logger');
-const db = require('./db');
-const { AppError } = require('./utils/errors');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * App factory — creates and configures the Fastify instance.
@@ -31,7 +36,7 @@ async function buildApp() {
   app.decorate('db', db);
 
   // ─── Security headers ─────────────────────────────────────────────────────────
-  await app.register(require('@fastify/helmet'), {
+  await app.register(fastifyHelmet, {
     // Static assets (SDK, vendor scripts) are intentionally loaded cross-origin
     // by client websites and the demo apps. Allow this explicitly.
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -51,7 +56,7 @@ async function buildApp() {
   // ─── CORS ─────────────────────────────────────────────────────────────────────
   // In production, restrict origins to tenant-registered domains.
   // For MVP, we allow the configured origins plus localhost for demos.
-  await app.register(require('@fastify/cors'), {
+  await app.register(fastifyCors, {
     origin: (origin, cb) => {
       // Allow requests with no origin (server-to-server, Postman, same-origin fetches)
       if (!origin) return cb(null, true);
@@ -86,7 +91,7 @@ async function buildApp() {
   });
 
   // ─── Rate limiting ─────────────────────────────────────────────────────────────
-  await app.register(require('@fastify/rate-limit'), {
+  await app.register(fastifyRateLimit, {
     global:   true,
     max:      200,
     timeWindow: '1 minute',
@@ -99,7 +104,7 @@ async function buildApp() {
   });
 
   // ─── Static files (SDK bundle + vendor) ──────────────────────────────────────
-  await app.register(require('@fastify/static'), {
+  await app.register(fastifyStatic, {
     root:   path.join(__dirname, '../public'),
     prefix: '/static/',
   });
@@ -110,13 +115,13 @@ async function buildApp() {
   //   /demo/agent/     →  the agent co-browse console
   // Static assets (styles.css, app.js) are served by these mounts.
   // The index.html files reference /static/... which resolves to the SDK/vendor files.
-  await app.register(require('@fastify/static'), {
+  await app.register(fastifyStatic, {
     root:           path.join(__dirname, '../../customer-app'),
     prefix:         '/demo/customer/',
     decorateReply:  false,
   });
 
-  await app.register(require('@fastify/static'), {
+  await app.register(fastifyStatic, {
     root:           path.join(__dirname, '../../agent-app'),
     prefix:         '/demo/agent/',
     decorateReply:  false,
@@ -235,20 +240,26 @@ async function buildApp() {
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }));
 
   // API v1 — agent-facing
-  app.register(require('./routes/sessions'),    { prefix: '/api/v1/sessions' });
-  app.register(require('./routes/snapshots'),   { prefix: '/api/v1/snapshots' });
-  app.register(require('./routes/dom-events'),  { prefix: '/api/v1/dom-events' });
-  app.register(require('./routes/ably-auth'),   { prefix: '/api/v1/ably-auth' });
+  const sessionsRoutes = (await import('./routes/sessions.js')).default;
+  const snapshotsRoutes = (await import('./routes/snapshots.js')).default;
+  const domEventsRoutes = (await import('./routes/dom-events.js')).default;
+  const ablyAuthRoutes = (await import('./routes/ably-auth.js')).default;
+
+  app.register(sessionsRoutes,   { prefix: '/api/v1/sessions' });
+  app.register(snapshotsRoutes,  { prefix: '/api/v1/snapshots' });
+  app.register(domEventsRoutes,  { prefix: '/api/v1/dom-events' });
+  app.register(ablyAuthRoutes,   { prefix: '/api/v1/ably-auth' });
 
   // API v1 — admin
-  const { adminRoutes, publicRoutes } = require('./routes/admin');
+  const { adminRoutes, publicRoutes } = await import('./routes/admin.js');
   app.register(adminRoutes,  { prefix: '/api/v1/admin' });
   app.register(publicRoutes, { prefix: '/api/v1/public' });
 
   // Consent page — customer-facing HTML
-  app.register(require('./routes/consent'), { prefix: '/consent' });
+  const consentRoutes = (await import('./routes/consent.js')).default;
+  app.register(consentRoutes, { prefix: '/consent' });
 
   return app;
 }
 
-module.exports = buildApp;
+export default buildApp;

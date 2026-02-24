@@ -1,9 +1,11 @@
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as sessionService from '../services/session.js';
+import { NotFoundError } from '../utils/errors.js';
 
-const fs = require('fs');
-const path = require('path');
-const sessionService = require('../services/session');
-const { NotFoundError } = require('../utils/errors');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const consentTemplate = fs.readFileSync(
   path.join(__dirname, '../views/consent.html'),
@@ -119,4 +121,4 @@ async function consentRoutes(fastify) {
   });
 }
 
-module.exports = consentRoutes;
+export default consentRoutes;

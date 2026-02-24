@@ -1,8 +1,6 @@
-'use strict';
-
-const { Transport } = require('./transport');
-const { Capture }   = require('./capture');
-const indicator     = require('./indicator');
+import { Transport } from './transport.js';
+import { Capture } from './capture.js';
+import * as indicator from './indicator.js';
 
 const RECONNECT_TOKEN_KEY  = (sessionId) => `cobrowse_token_${sessionId}`;
 const ACTIVE_SESSION_KEY   = 'cobrowse_active_session';
@@ -515,4 +513,4 @@ class Session {
   }
 }
 
-module.exports = { Session };
+export { Session };

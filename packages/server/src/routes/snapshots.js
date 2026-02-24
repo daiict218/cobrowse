@@ -1,10 +1,8 @@
-'use strict';
-
-const sessionService = require('../services/session');
-const ablyService    = require('../services/ably');
-const { authenticate, authenticateSecret } = require('../middleware/auth');
-const { verifyCustomerToken } = require('../utils/token');
-const { UnauthorizedError, NotFoundError, ValidationError } = require('../utils/errors');
+import * as sessionService from '../services/session.js';
+import * as ablyService from '../services/ably.js';
+import { authenticate, authenticateSecret } from '../middleware/auth.js';
+import { verifyCustomerToken } from '../utils/token.js';
+import { UnauthorizedError, NotFoundError, ValidationError } from '../utils/errors.js';
 
 /**
  * Snapshot routes — DOM snapshot store and retrieve.
@@ -114,4 +112,4 @@ async function snapshotsRoutes(fastify) {
   });
 }
 
-module.exports = snapshotsRoutes;
+export default snapshotsRoutes;

@@ -1,10 +1,8 @@
-'use strict';
-
-const { authenticateSecret } = require('../middleware/auth');
-const { exportTenantEvents } = require('../services/audit');
-const { ValidationError } = require('../utils/errors');
-const { generateCustomerToken, hashApiKey } = require('../utils/token');
-const db = require('../db');
+import { authenticateSecret } from '../middleware/auth.js';
+import { exportTenantEvents } from '../services/audit.js';
+import { ValidationError } from '../utils/errors.js';
+import { generateCustomerToken, hashApiKey } from '../utils/token.js';
+import * as db from '../db/index.js';
 
 /**
  * Admin routes — tenant configuration and audit export.
@@ -204,4 +202,4 @@ async function publicRoutes(fastify) {
   });
 }
 
-module.exports = { adminRoutes, publicRoutes };
+export { adminRoutes, publicRoutes };

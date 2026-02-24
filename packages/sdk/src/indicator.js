@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Indicator — injects a persistent "session active" banner into the customer's page.
  *
@@ -149,4 +147,4 @@ function removePointer() {
   if (pointer) pointer.remove();
 }
 
-module.exports = { inject, remove, onEndClick, showPointer, removePointer };
+export { inject, remove, onEndClick, showPointer, removePointer };

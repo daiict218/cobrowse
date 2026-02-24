@@ -1,11 +1,12 @@
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import pg from 'pg';
+import config from '../config.js';
 
-require('dotenv').config();
-
-const fs = require('fs');
-const path = require('path');
-const { Pool } = require('pg');
-const config = require('../config');
+const { Pool } = pg;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function migrate() {
   const pool = new Pool({

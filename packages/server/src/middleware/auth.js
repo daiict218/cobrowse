@@ -1,8 +1,6 @@
-'use strict';
-
-const db = require('../db');
-const { hashApiKey } = require('../utils/token');
-const { UnauthorizedError } = require('../utils/errors');
+import * as db from '../db/index.js';
+import { hashApiKey } from '../utils/token.js';
+import { UnauthorizedError } from '../utils/errors.js';
 
 /**
  * Authentication middleware for Fastify.
@@ -75,4 +73,4 @@ async function authenticateSecret(request, reply) {
   request.tenant = tenant;
 }
 
-module.exports = { authenticate, authenticateSecret };
+export { authenticate, authenticateSecret };
