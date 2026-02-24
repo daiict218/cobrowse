@@ -10,6 +10,8 @@
  * Ably connects or not. The agent polls the HTTP relay for events.
  */
 
+import { log } from './logger.js';
+
 const ABLY_BATCH_INTERVAL_MS = 80;   // Ably flush every 80ms (≈12 batches/sec)
 const ABLY_MAX_BATCH_SIZE    = 50;   // max events per Ably message
 const HTTP_FLUSH_INTERVAL_MS = 80;   // HTTP relay flush — fast enough for low-latency, stays under rate limit
@@ -47,7 +49,7 @@ class Transport {
     try {
       await this._connectAbly(tenantId);
     } catch (err) {
-      console.warn('[CoBrowse] Ably connection failed, HTTP relay is active:', err.message);
+      log.warn('[CoBrowse] Ably connection failed, HTTP relay is active:', err.message);
       // HTTP relay is already running — events will still reach the server
     }
   }
@@ -56,7 +58,7 @@ class Transport {
     const Ably = window.Ably || (await import('ably'));
     const Client = Ably.Realtime || Ably.default?.Realtime;
 
-    console.debug('[CoBrowse] Transport: connecting to Ably…');
+    log.debug('[CoBrowse] Transport: connecting to Ably…');
 
     this._ably = new Client({
       authUrl:    `${this._serverUrl}/api/v1/ably-auth?role=customer&sessionId=${this._sessionId}`,
@@ -73,7 +75,7 @@ class Transport {
       this._ably.connection.once('failed',    (err) => { clearTimeout(timeout); reject(err); });
     });
 
-    console.debug('[CoBrowse] Transport: Ably connected');
+    log.debug('[CoBrowse] Transport: Ably connected');
 
     // Channels are keyed by tenantId to prevent cross-tenant access
     this._domCh  = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:dom`);
@@ -136,7 +138,7 @@ class Transport {
       await this._domCh.publish('events', events);
     } catch (err) {
       this._ablyBatch.unshift(...events);
-      console.warn('[CoBrowse] Ably publish failed, will retry:', err.message);
+      log.warn('[CoBrowse] Ably publish failed, will retry:', err.message);
     }
   }
 

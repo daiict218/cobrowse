@@ -4154,7 +4154,7 @@ var CoBrowse = (() => {
           }
         };
         var channelstatechange_default = ChannelStateChange;
-        var noop = function() {
+        var noop2 = function() {
         };
         function validateChannelOptions(options) {
           if (options && "params" in options && !isObject(options.params)) {
@@ -4456,7 +4456,7 @@ var CoBrowse = (() => {
             if (this._lastPayload.decodeFailureRecoveryInProgress) {
               attachMsg.channelSerial = this._lastPayload.protocolMessageChannelSerial;
             }
-            this.sendMessage(attachMsg).catch(noop);
+            this.sendMessage(attachMsg).catch(noop2);
           }
           async detach() {
             const connectionManager = this.connectionManager;
@@ -4499,7 +4499,7 @@ var CoBrowse = (() => {
           detachImpl() {
             logger_default.logAction(this.logger, logger_default.LOG_MICRO, "RealtimeChannel.detach()", "sending DETACH message");
             const msg = fromValues({ action: actions.DETACH, channel: this.name });
-            this.sendMessage(msg).catch(noop);
+            this.sendMessage(msg).catch(noop2);
           }
           async subscribe(...args) {
             const [event, listener] = _RealtimeChannel.processListenerArgs(args);
@@ -5589,7 +5589,7 @@ var CoBrowse = (() => {
           var _a2;
           return typeof Platform.WebStorage !== "undefined" && ((_a2 = Platform.WebStorage) == null ? void 0 : _a2.sessionSupported);
         };
-        var noop2 = function() {
+        var noop22 = function() {
         };
         var transportPreferenceName = "ably-transport-preference";
         function decodeRecoveryKey(recoveryKey) {
@@ -6653,7 +6653,7 @@ var CoBrowse = (() => {
                   this.disconnectAllTransports();
                   this.connectWs(transportParams, ++this.connectCounter);
                 }
-              }).catch(noop2);
+              }).catch(noop22);
             }
             if (transportPreference && transportPreference === this.baseTransport || this.baseTransport && !this.webSocketTransportAvailable) {
               this.connectBase(transportParams, connectCount);
@@ -6906,7 +6906,7 @@ var CoBrowse = (() => {
            * event queueing
            ******************/
           send(msg, queueEvent, callback) {
-            callback = callback || noop2;
+            callback = callback || noop22;
             const state = this.state;
             if (state.sendEvents) {
               logger_default.logAction(this.logger, logger_default.LOG_MICRO, "ConnectionManager.send()", "sending event");
@@ -10084,6 +10084,29 @@ var CoBrowse = (() => {
     default: () => src_default
   });
 
+  // src/logger.js
+  var LEVELS = { debug: 0, info: 1, warn: 2, error: 3, silent: 4 };
+  var currentLevel = LEVELS.warn;
+  function setLevel(level) {
+    currentLevel = LEVELS[level] ?? LEVELS.warn;
+  }
+  var noop = () => {
+  };
+  var log = {
+    get debug() {
+      return currentLevel <= LEVELS.debug ? console.debug.bind(console) : noop;
+    },
+    get info() {
+      return currentLevel <= LEVELS.info ? console.info.bind(console) : noop;
+    },
+    get warn() {
+      return currentLevel <= LEVELS.warn ? console.warn.bind(console) : noop;
+    },
+    get error() {
+      return currentLevel <= LEVELS.error ? console.error.bind(console) : noop;
+    }
+  };
+
   // src/transport.js
   var ABLY_BATCH_INTERVAL_MS = 80;
   var ABLY_MAX_BATCH_SIZE = 50;
@@ -10113,13 +10136,13 @@ var CoBrowse = (() => {
       try {
         await this._connectAbly(tenantId);
       } catch (err) {
-        console.warn("[CoBrowse] Ably connection failed, HTTP relay is active:", err.message);
+        log.warn("[CoBrowse] Ably connection failed, HTTP relay is active:", err.message);
       }
     }
     async _connectAbly(tenantId) {
       const Ably = window.Ably || await Promise.resolve().then(() => __toESM(require_ably(), 1));
       const Client = Ably.Realtime || Ably.default?.Realtime;
-      console.debug("[CoBrowse] Transport: connecting to Ably\u2026");
+      log.debug("[CoBrowse] Transport: connecting to Ably\u2026");
       this._ably = new Client({
         authUrl: `${this._serverUrl}/api/v1/ably-auth?role=customer&sessionId=${this._sessionId}`,
         authMethod: "GET",
@@ -10138,7 +10161,7 @@ var CoBrowse = (() => {
           reject(err);
         });
       });
-      console.debug("[CoBrowse] Transport: Ably connected");
+      log.debug("[CoBrowse] Transport: Ably connected");
       this._domCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:dom`);
       this._ctrlCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:ctrl`);
       this._sysCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:sys`);
@@ -10186,7 +10209,7 @@ var CoBrowse = (() => {
         await this._domCh.publish("events", events);
       } catch (err) {
         this._ablyBatch.unshift(...events);
-        console.warn("[CoBrowse] Ably publish failed, will retry:", err.message);
+        log.warn("[CoBrowse] Ably publish failed, will retry:", err.message);
       }
     }
     // ─── HTTP relay (always-on, starts before Ably) ────────────────────────────
@@ -10298,14 +10321,14 @@ var CoBrowse = (() => {
     start() {
       const rrweb = window.rrweb;
       if (!rrweb || !rrweb.record) {
-        console.error("[CoBrowse] rrweb not loaded. Ensure rrweb is available on the page.");
+        log.error("[CoBrowse] rrweb not loaded. Ensure rrweb is available on the page.");
         return;
       }
-      console.debug("[CoBrowse] Capture.start(): rrweb found, starting record(). readyState=", document.readyState);
+      log.debug("[CoBrowse] Capture.start(): rrweb found, starting record(). readyState=", document.readyState);
       const maskSelector = buildMaskSelector(this._rules);
       this._stopFn = rrweb.record({
         emit: (event) => {
-          console.debug("[CoBrowse] Capture emit called, event.type=", event && event.type);
+          log.debug("[CoBrowse] Capture emit called, event.type=", event && event.type);
           const safe = sanitiseEvent(event, this._rules);
           this._onEvent(safe);
           if (location.href !== this._lastUrl) {
@@ -10355,9 +10378,9 @@ var CoBrowse = (() => {
         }
       });
       if (this._stopFn) {
-        console.debug("[CoBrowse] Capture.start(): rrweb.record() returned successfully");
+        log.debug("[CoBrowse] Capture.start(): rrweb.record() returned successfully");
       } else {
-        console.error("[CoBrowse] Capture.start(): rrweb.record() returned null/undefined \u2014 recording failed!");
+        log.error("[CoBrowse] Capture.start(): rrweb.record() returned null/undefined \u2014 recording failed!");
       }
     }
     stop() {
@@ -10539,7 +10562,7 @@ var CoBrowse = (() => {
         // Specifying a different clientId here would cause Ably to reject the connection.
       });
       this._inviteAbly.connection.on("connected", () => {
-        console.debug("[CoBrowse] Listening for invites");
+        log.debug("[CoBrowse] Listening for invites");
       });
       this._inviteAbly.connection.once("connected", async () => {
         const tenantId = await this._resolveTenantId();
@@ -10573,7 +10596,7 @@ var CoBrowse = (() => {
           if (match) return match[1];
         }
       } catch (err) {
-        console.warn("[CoBrowse] Could not resolve tenantId:", err.message);
+        log.warn("[CoBrowse] Could not resolve tenantId:", err.message);
       }
       return null;
     }
@@ -10588,12 +10611,12 @@ var CoBrowse = (() => {
     // activates without needing cross-origin localStorage access.
     _handleActivate({ sessionId, customerToken }) {
       if (this._state === "active") return;
-      console.debug("[CoBrowse] _handleActivate called", { hasSession: !!sessionId, hasToken: !!customerToken });
+      log.debug("[CoBrowse] _handleActivate called", { hasSession: !!sessionId, hasToken: !!customerToken });
       document.getElementById("__cobrowse_consent__")?.remove();
       this._sessionId = sessionId;
       if (!this._tenantId && customerToken) {
         this._tenantId = this._extractTenantFromToken(customerToken);
-        console.debug("[CoBrowse] resolved tenantId from token");
+        log.debug("[CoBrowse] resolved tenantId from token");
       }
       try {
         sessionStorage.setItem(`cobrowse_token_${sessionId}`, customerToken);
@@ -10601,7 +10624,7 @@ var CoBrowse = (() => {
       } catch {
       }
       this._startCapture(customerToken).catch((err) => {
-        console.error("[CoBrowse] _startCapture failed:", err);
+        log.error("[CoBrowse] _startCapture failed:", err);
         this._setState("idle");
       });
     }
@@ -10669,7 +10692,7 @@ var CoBrowse = (() => {
         if (!this._tenantId) this._tenantId = this._extractTenantFromToken(customerToken);
         await this._startCapture(customerToken);
       } catch (err) {
-        console.error("[CoBrowse] Activation failed:", err);
+        log.error("[CoBrowse] Activation failed:", err);
         this._setState("idle");
       }
     }
@@ -10688,10 +10711,10 @@ var CoBrowse = (() => {
     // ─── Start capturing ──────────────────────────────────────────────────────────
     async _startCapture(customerToken) {
       if (this._state === "active") {
-        console.warn("[CoBrowse] _startCapture called while already active \u2014 ignoring");
+        log.warn("[CoBrowse] _startCapture called while already active \u2014 ignoring");
         return;
       }
-      console.debug("[CoBrowse] _startCapture: starting");
+      log.debug("[CoBrowse] _startCapture: starting");
       this._setState("active");
       this._transport = new Transport({
         serverUrl: this._serverUrl,
@@ -10703,7 +10726,7 @@ var CoBrowse = (() => {
         onSys: ({ type, reason }) => {
           if (type === "session.ended") this._cleanup(reason || "remote");
           if (type === "session.idle_warned") {
-            console.warn("[CoBrowse] Idle warning received \u2014 session will end soon");
+            log.warn("[CoBrowse] Idle warning received \u2014 session will end soon");
           }
         }
       });
@@ -10712,7 +10735,7 @@ var CoBrowse = (() => {
       this._capture = new Capture({
         maskingRules: this._maskingRules,
         onEvent: (event) => {
-          console.debug("[CoBrowse] rrweb event, type=", event && event.type);
+          log.debug("[CoBrowse] rrweb event, type=", event && event.type);
           if (event.type === 4) {
             metaEvent = event;
           }
@@ -10720,9 +10743,9 @@ var CoBrowse = (() => {
             const events = metaEvent ? [metaEvent, event] : [event];
             if (!snapshotPosted) {
               snapshotPosted = true;
-              console.debug("[CoBrowse] posting initial snapshot, count=", events.length);
+              log.debug("[CoBrowse] posting initial snapshot, count=", events.length);
             } else {
-              console.debug("[CoBrowse] re-posting snapshot on navigation, count=", events.length);
+              log.debug("[CoBrowse] re-posting snapshot on navigation, count=", events.length);
             }
             this._postSnapshot(events, customerToken);
             return;
@@ -10734,32 +10757,32 @@ var CoBrowse = (() => {
         },
         onUrlChange: (url) => this._reportUrlChange(url)
       });
-      console.debug("[CoBrowse] calling rrweb.record()...");
+      log.debug("[CoBrowse] calling rrweb.record()...");
       this._capture.start();
-      console.debug("[CoBrowse] rrweb.record() called. snapshotPosted=", snapshotPosted);
-      console.debug("[CoBrowse] connecting transport");
-      this._transport.connect(this._tenantId).then(() => console.debug("[CoBrowse] Transport connected")).catch((err) => console.error("[CoBrowse] Transport connect failed:", err.message));
+      log.debug("[CoBrowse] rrweb.record() called. snapshotPosted=", snapshotPosted);
+      log.debug("[CoBrowse] connecting transport");
+      this._transport.connect(this._tenantId).then(() => log.debug("[CoBrowse] Transport connected")).catch((err) => log.error("[CoBrowse] Transport connect failed:", err.message));
       inject();
       onEndClick(() => this._endByCustomer());
     }
     async _postSnapshot(snapshot, customerToken) {
       const url = `${this._serverUrl}/api/v1/snapshots/${this._sessionId}`;
-      console.debug("[CoBrowse] _postSnapshot: POSTing to", url);
+      log.debug("[CoBrowse] _postSnapshot: POSTing to", url);
       try {
         const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ snapshot, customerToken, url: location.href })
         });
-        console.debug("[CoBrowse] _postSnapshot: response status", res.status);
+        log.debug("[CoBrowse] _postSnapshot: response status", res.status);
         if (!res.ok) {
           const text = await res.text().catch(() => "");
-          console.warn("[CoBrowse] Snapshot upload failed with status", res.status, text);
+          log.warn("[CoBrowse] Snapshot upload failed with status", res.status, text);
         } else {
-          console.info("[CoBrowse] Snapshot uploaded successfully");
+          log.info("[CoBrowse] Snapshot uploaded successfully");
         }
       } catch (err) {
-        console.warn("[CoBrowse] Snapshot upload failed (network):", err.message);
+        log.warn("[CoBrowse] Snapshot upload failed (network):", err.message);
       }
     }
     async _endByCustomer() {
@@ -10877,7 +10900,7 @@ var CoBrowse = (() => {
       this._capture = null;
       this._transport = null;
       this._setState("idle");
-      console.info(`[CoBrowse] Session ended. Reason: ${reason}`);
+      log.info(`[CoBrowse] Session ended. Reason: ${reason}`);
     }
     _setState(state) {
       this._state = state;
@@ -10913,16 +10936,17 @@ var CoBrowse = (() => {
      * @param {string} options.customerId  — Unique customer identifier
      * @param {Function} [options.onStateChange] — State change callback
      */
-    async init({ serverUrl, publicKey, customerId, onStateChange }) {
+    async init({ serverUrl, publicKey, customerId, onStateChange, logLevel }) {
+      if (logLevel) setLevel(logLevel);
       if (_session) {
-        console.warn("[CoBrowse] Already initialised. Call CoBrowse.destroy() first.");
+        log.warn("[CoBrowse] Already initialised. Call CoBrowse.destroy() first.");
         return;
       }
       if (!serverUrl || !publicKey || !customerId) {
         throw new Error("[CoBrowse] serverUrl, publicKey, and customerId are required");
       }
       if (typeof window !== "undefined" && !serverUrl.startsWith("https://") && !serverUrl.includes("localhost") && !serverUrl.includes("127.0.0.1")) {
-        console.warn("[CoBrowse] WARNING: serverUrl uses HTTP. Tokens and session data are sent unencrypted. Use HTTPS in production.");
+        log.warn("[CoBrowse] WARNING: serverUrl uses HTTP. Tokens and session data are sent unencrypted. Use HTTPS in production.");
       }
       const maskingRules = await _fetchMaskingRules(serverUrl, publicKey);
       _session = new Session({
@@ -10936,7 +10960,7 @@ var CoBrowse = (() => {
       });
       await _session.init(maskingRules);
       _plugins.forEach((p) => p.init?.(_session));
-      console.info("[CoBrowse] Initialised. Customer ID:", customerId);
+      log.info("[CoBrowse] Initialised. Customer ID:", customerId);
     },
     /**
      * Register a plugin. Plugins extend SDK behaviour (e.g. Phase 2 agent control).
@@ -10986,7 +11010,7 @@ var CoBrowse = (() => {
       const data = await res.json();
       return data.maskingRules || FALLBACK_MASKING_RULES;
     } catch {
-      console.warn("[CoBrowse] Could not fetch masking rules, using built-in defaults");
+      log.warn("[CoBrowse] Could not fetch masking rules, using built-in defaults");
       return FALLBACK_MASKING_RULES;
     }
   }

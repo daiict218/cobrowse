@@ -1,6 +1,7 @@
 import { Transport } from './transport.js';
 import { Capture } from './capture.js';
 import * as indicator from './indicator.js';
+import { log } from './logger.js';
 
 const RECONNECT_TOKEN_KEY  = (sessionId) => `cobrowse_token_${sessionId}`;
 const ACTIVE_SESSION_KEY   = 'cobrowse_active_session';
@@ -63,7 +64,7 @@ class Session {
     });
 
     this._inviteAbly.connection.on('connected', () => {
-      console.debug('[CoBrowse] Listening for invites');
+      log.debug('[CoBrowse] Listening for invites');
     });
 
     // We don't know the tenantId yet — subscribe after receiving the first invite
@@ -108,7 +109,7 @@ class Session {
         if (match) return match[1];
       }
     } catch (err) {
-      console.warn('[CoBrowse] Could not resolve tenantId:', err.message);
+      log.warn('[CoBrowse] Could not resolve tenantId:', err.message);
     }
     return null;
   }
@@ -129,7 +130,7 @@ class Session {
   _handleActivate({ sessionId, customerToken }) {
     if (this._state === 'active') return; // already active (e.g. inline consent used)
 
-    console.debug('[CoBrowse] _handleActivate called', { hasSession: !!sessionId, hasToken: !!customerToken });
+    log.debug('[CoBrowse] _handleActivate called', { hasSession: !!sessionId, hasToken: !!customerToken });
 
     // Remove inline overlay if it's still showing
     document.getElementById('__cobrowse_consent__')?.remove();
@@ -141,7 +142,7 @@ class Session {
     // Format after decode: sessionId:customerId:tenantId:expiresAt:hmac
     if (!this._tenantId && customerToken) {
       this._tenantId = this._extractTenantFromToken(customerToken);
-      console.debug('[CoBrowse] resolved tenantId from token');
+      log.debug('[CoBrowse] resolved tenantId from token');
     }
 
     try {
@@ -150,7 +151,7 @@ class Session {
     } catch {}
 
     this._startCapture(customerToken).catch((err) => {
-      console.error('[CoBrowse] _startCapture failed:', err);
+      log.error('[CoBrowse] _startCapture failed:', err);
       this._setState('idle');
     });
   }
@@ -229,7 +230,7 @@ class Session {
       if (!this._tenantId) this._tenantId = this._extractTenantFromToken(customerToken);
       await this._startCapture(customerToken);
     } catch (err) {
-      console.error('[CoBrowse] Activation failed:', err);
+      log.error('[CoBrowse] Activation failed:', err);
       this._setState('idle');
     }
   }
@@ -251,10 +252,10 @@ class Session {
   async _startCapture(customerToken) {
     // Guard against re-entrant calls (race between inline consent and Ably 'activate' event)
     if (this._state === 'active') {
-      console.warn('[CoBrowse] _startCapture called while already active — ignoring');
+      log.warn('[CoBrowse] _startCapture called while already active — ignoring');
       return;
     }
-    console.debug('[CoBrowse] _startCapture: starting');
+    log.debug('[CoBrowse] _startCapture: starting');
     this._setState('active'); // Set FIRST — prevents concurrent second call from proceeding
 
     // Create transport (not yet connected to Ably — events will be buffered until connection)
@@ -268,7 +269,7 @@ class Session {
       onSys: ({ type, reason }) => {
         if (type === 'session.ended') this._cleanup(reason || 'remote');
         if (type === 'session.idle_warned') {
-          console.warn('[CoBrowse] Idle warning received — session will end soon');
+          log.warn('[CoBrowse] Idle warning received — session will end soon');
         }
       },
     });
@@ -286,7 +287,7 @@ class Session {
     this._capture = new Capture({
       maskingRules: this._maskingRules,
       onEvent: (event) => {
-        console.debug('[CoBrowse] rrweb event, type=', event && event.type);
+        log.debug('[CoBrowse] rrweb event, type=', event && event.type);
 
         // Hold the Meta event (type 4) — needed by the replayer for viewport size
         if (event.type === 4 /* Meta */) {
@@ -299,9 +300,9 @@ class Session {
           const events = metaEvent ? [metaEvent, event] : [event];
           if (!snapshotPosted) {
             snapshotPosted = true;
-            console.debug('[CoBrowse] posting initial snapshot, count=', events.length);
+            log.debug('[CoBrowse] posting initial snapshot, count=', events.length);
           } else {
-            console.debug('[CoBrowse] re-posting snapshot on navigation, count=', events.length);
+            log.debug('[CoBrowse] re-posting snapshot on navigation, count=', events.length);
           }
           this._postSnapshot(events, customerToken);
           return; // Never enqueue FullSnapshot to Ably
@@ -321,16 +322,16 @@ class Session {
       onUrlChange: (url) => this._reportUrlChange(url),
     });
 
-    console.debug('[CoBrowse] calling rrweb.record()...');
+    log.debug('[CoBrowse] calling rrweb.record()...');
     this._capture.start();
-    console.debug('[CoBrowse] rrweb.record() called. snapshotPosted=', snapshotPosted);
+    log.debug('[CoBrowse] rrweb.record() called. snapshotPosted=', snapshotPosted);
 
     // Connect Ably transport in background (non-blocking)
     // Transport buffers events enqueued before connection; flushes them once attached.
-    console.debug('[CoBrowse] connecting transport');
+    log.debug('[CoBrowse] connecting transport');
     this._transport.connect(this._tenantId)
-      .then(() => console.debug('[CoBrowse] Transport connected'))
-      .catch((err) => console.error('[CoBrowse] Transport connect failed:', err.message));
+      .then(() => log.debug('[CoBrowse] Transport connected'))
+      .catch((err) => log.error('[CoBrowse] Transport connect failed:', err.message));
 
     // Inject the active session banner
     indicator.inject();
@@ -339,22 +340,22 @@ class Session {
 
   async _postSnapshot(snapshot, customerToken) {
     const url = `${this._serverUrl}/api/v1/snapshots/${this._sessionId}`;
-    console.debug('[CoBrowse] _postSnapshot: POSTing to', url);
+    log.debug('[CoBrowse] _postSnapshot: POSTing to', url);
     try {
       const res = await fetch(url, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ snapshot, customerToken, url: location.href }),
       });
-      console.debug('[CoBrowse] _postSnapshot: response status', res.status);
+      log.debug('[CoBrowse] _postSnapshot: response status', res.status);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        console.warn('[CoBrowse] Snapshot upload failed with status', res.status, text);
+        log.warn('[CoBrowse] Snapshot upload failed with status', res.status, text);
       } else {
-        console.info('[CoBrowse] Snapshot uploaded successfully');
+        log.info('[CoBrowse] Snapshot uploaded successfully');
       }
     } catch (err) {
-      console.warn('[CoBrowse] Snapshot upload failed (network):', err.message);
+      log.warn('[CoBrowse] Snapshot upload failed (network):', err.message);
     }
   }
 
@@ -490,7 +491,7 @@ class Session {
     this._capture   = null;
     this._transport = null;
     this._setState('idle');
-    console.info(`[CoBrowse] Session ended. Reason: ${reason}`);
+    log.info(`[CoBrowse] Session ended. Reason: ${reason}`);
   }
 
   _setState(state) {

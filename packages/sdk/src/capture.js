@@ -1,4 +1,5 @@
 import { buildMaskSelector, sanitiseEvent } from './masking.js';
+import { log } from './logger.js';
 
 /**
  * Capture module — wraps rrweb's record function.
@@ -22,17 +23,17 @@ class Capture {
   start() {
     const rrweb = window.rrweb;
     if (!rrweb || !rrweb.record) {
-      console.error('[CoBrowse] rrweb not loaded. Ensure rrweb is available on the page.');
+      log.error('[CoBrowse] rrweb not loaded. Ensure rrweb is available on the page.');
       return;
     }
 
-    console.debug('[CoBrowse] Capture.start(): rrweb found, starting record(). readyState=', document.readyState);
+    log.debug('[CoBrowse] Capture.start(): rrweb found, starting record(). readyState=', document.readyState);
 
     const maskSelector = buildMaskSelector(this._rules);
 
     this._stopFn = rrweb.record({
       emit: (event) => {
-        console.debug('[CoBrowse] Capture emit called, event.type=', event && event.type);
+        log.debug('[CoBrowse] Capture emit called, event.type=', event && event.type);
         // Level 2 masking — post-capture pass to catch any PII that slipped through
         // (e.g. card numbers pasted into a <div contenteditable>)
         const safe = sanitiseEvent(event, this._rules);
@@ -92,9 +93,9 @@ class Capture {
     });
 
     if (this._stopFn) {
-      console.debug('[CoBrowse] Capture.start(): rrweb.record() returned successfully');
+      log.debug('[CoBrowse] Capture.start(): rrweb.record() returned successfully');
     } else {
-      console.error('[CoBrowse] Capture.start(): rrweb.record() returned null/undefined — recording failed!');
+      log.error('[CoBrowse] Capture.start(): rrweb.record() returned null/undefined — recording failed!');
     }
   }
 
