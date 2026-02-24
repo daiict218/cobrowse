@@ -74,6 +74,21 @@ const cacheOperationsTotal = new client.Counter({
   registers: [registry],
 });
 
+// ─── Recording metrics ──────────────────────────────────────────────────
+
+const recordingEventsTotal = new client.Counter({
+  name: 'cobrowse_recording_events_total',
+  help: 'Total rrweb events buffered for recording',
+  registers: [registry],
+});
+
+const recordingSizeBytes = new client.Histogram({
+  name: 'cobrowse_recording_size_bytes',
+  help: 'Compressed recording file size in bytes',
+  buckets: [1024, 10240, 51200, 102400, 524288, 1048576, 5242880, 10485760],
+  registers: [registry],
+});
+
 // ─── Snapshot metrics ────────────────────────────────────────────────────────
 
 const snapshotSizeBytes = new client.Histogram({
@@ -117,6 +132,8 @@ export {
   dbQueryErrorsTotal,
   cacheOperationsTotal,
   snapshotSizeBytes,
+  recordingEventsTotal,
+  recordingSizeBytes,
   metricsPlugin,
   resetMetrics,
 };

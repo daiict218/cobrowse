@@ -103,3 +103,26 @@ CREATE TABLE IF NOT EXISTS session_events (
 
 CREATE INDEX IF NOT EXISTS idx_session_events_session_id ON session_events(session_id);
 CREATE INDEX IF NOT EXISTS idx_session_events_tenant_ts  ON session_events(tenant_id, ts DESC);
+
+-- ─── Session Recordings ──────────────────────────────────────────────────────
+-- Metadata for session recordings stored in the configured storage backend
+-- (filesystem for dev, S3 for production). The actual event data is gzip-compressed
+-- and stored externally; this table only holds metadata and the storage key.
+CREATE TABLE IF NOT EXISTS session_recordings (
+  id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id        UUID        NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  tenant_id         UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  storage_key       TEXT,                           -- path or S3 key
+  event_count       INTEGER     NOT NULL DEFAULT 0,
+  duration_ms       INTEGER,
+  compressed_size   INTEGER,
+  raw_size          INTEGER,
+  status            TEXT        NOT NULL DEFAULT 'recording'
+                    CHECK (status IN ('recording', 'complete', 'failed')),
+  started_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at      TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_recordings_session ON session_recordings(session_id);
+CREATE INDEX IF NOT EXISTS idx_recordings_tenant  ON session_recordings(tenant_id, created_at DESC);

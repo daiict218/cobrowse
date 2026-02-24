@@ -54,7 +54,7 @@ async function domEventsRoutes(fastify) {
     }
 
     if (events.length > 0) {
-      await sessionService.bufferDomEvents(sessionId, events);
+      await sessionService.bufferDomEvents(sessionId, events, tokenPayload.tenantId);
       // Reset idle timer on activity
       sessionService.touchSession(sessionId, tokenPayload.tenantId);
     }

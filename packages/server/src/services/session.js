@@ -3,6 +3,7 @@ import cache from '../cache/index.js';
 import * as ablyService from './ably.js';
 import * as audit from './audit.js';
 import * as timers from './timers.js';
+import * as recording from './recording.js';
 import { generateCustomerToken } from '../utils/token.js';
 import { NotFoundError, ConflictError, ForbiddenError } from '../utils/errors.js';
 import config from '../config.js';
@@ -272,12 +273,17 @@ async function recordUrlChange(sessionId, tenantId, url) {
 
 // ─── Snapshot Store / Fetch ───────────────────────────────────────────────────
 
-async function storeSnapshot(sessionId, snapshot) {
+async function storeSnapshot(sessionId, snapshot, tenantId) {
   await cache.set(
     SNAPSHOT_KEY(sessionId),
     snapshot,
     config.session.snapshotTtlSeconds
   );
+
+  // Start recording if enabled for this tenant (non-fatal on failure)
+  if (tenantId) {
+    recording.startRecording(sessionId, tenantId, snapshot).catch(() => {});
+  }
 }
 
 async function fetchSnapshot(sessionId) {
@@ -316,6 +322,9 @@ async function endSession(sessionId, tenantId, reason = 'agent') {
     activeSessions.dec({ status: 'pending' });
   }
 
+  // Finalize recording before clearing cache (non-fatal on failure)
+  recording.finalizeRecording(sessionId).catch(() => {});
+
   // Clear agent's active session lock
   await cache.del(ACTIVE_SESSION_KEY(tenantId, session.agent_id));
   await cache.del(SNAPSHOT_KEY(sessionId));
@@ -344,7 +353,7 @@ async function endSession(sessionId, tenantId, reason = 'agent') {
 const DOM_EVENTS_KEY = (sessionId) => `dom_events:${sessionId}`;
 const MAX_BUFFERED_EVENTS = 2000;
 
-async function bufferDomEvents(sessionId, events) {
+async function bufferDomEvents(sessionId, events, tenantId) {
   const key = DOM_EVENTS_KEY(sessionId);
   let buffer = await cache.get(key);
   if (!buffer) buffer = [];
@@ -359,6 +368,11 @@ async function bufferDomEvents(sessionId, events) {
   }
 
   await cache.set(key, buffer, config.session.maxDurationMinutes * 60);
+
+  // Buffer events for recording if enabled (non-fatal on failure)
+  if (tenantId) {
+    recording.bufferEvents(sessionId, events).catch(() => {});
+  }
 }
 
 async function getDomEvents(sessionId, since) {

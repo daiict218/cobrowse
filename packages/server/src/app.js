@@ -328,10 +328,13 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
   const domEventsRoutes = (await import('./routes/dom-events.js')).default;
   const ablyAuthRoutes = (await import('./routes/ably-auth.js')).default;
 
-  app.register(sessionsRoutes,   { prefix: '/api/v1/sessions' });
-  app.register(snapshotsRoutes,  { prefix: '/api/v1/snapshots' });
-  app.register(domEventsRoutes,  { prefix: '/api/v1/dom-events' });
-  app.register(ablyAuthRoutes,   { prefix: '/api/v1/ably-auth' });
+  const recordingsRoutes = (await import('./routes/recordings.js')).default;
+
+  app.register(sessionsRoutes,    { prefix: '/api/v1/sessions' });
+  app.register(snapshotsRoutes,   { prefix: '/api/v1/snapshots' });
+  app.register(domEventsRoutes,   { prefix: '/api/v1/dom-events' });
+  app.register(ablyAuthRoutes,    { prefix: '/api/v1/ably-auth' });
+  app.register(recordingsRoutes,  { prefix: '/api/v1/recordings' });
 
   // API v1 — admin
   const { adminRoutes, publicRoutes } = await import('./routes/admin.js');

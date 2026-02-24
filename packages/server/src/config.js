@@ -78,6 +78,14 @@ const config = {
       .filter(Boolean),
   },
 
+  recording: {
+    driver:   optionalEnv('RECORDING_DRIVER', 'fs'),       // 'fs' or 's3'
+    fsPath:   optionalEnv('RECORDING_FS_PATH', './data/recordings'),
+    s3Bucket: optionalEnv('RECORDING_S3_BUCKET', ''),
+    s3Region: optionalEnv('RECORDING_S3_REGION', 'us-east-1'),
+    s3Prefix: optionalEnv('RECORDING_S3_PREFIX', 'recordings/'),
+  },
+
   logging: {
     level: optionalEnv('LOG_LEVEL', 'info'),
   },
