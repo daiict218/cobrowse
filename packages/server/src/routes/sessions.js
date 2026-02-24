@@ -1,10 +1,10 @@
 import * as sessionService from '../services/session.js';
-import { authenticateSecret } from '../middleware/auth.js';
+import { authenticateSecretOrJwt } from '../middleware/auth.js';
 import { ValidationError } from '../utils/errors.js';
 
 /**
  * Session routes — agent-facing.
- * All endpoints require a secret API key (cb_sk_...).
+ * All endpoints require a secret API key (cb_sk_...) or JWT Bearer token.
  *
  * POST   /api/v1/sessions               Create a new session
  * GET    /api/v1/sessions/:id           Get session status
@@ -13,11 +13,11 @@ import { ValidationError } from '../utils/errors.js';
 async function sessionsRoutes(fastify) {
   // ─── Create session ──────────────────────────────────────────────────────────
   fastify.post('/', {
-    preHandler: authenticateSecret,
+    preHandler: authenticateSecretOrJwt,
     schema: {
       body: {
         type: 'object',
-        required: ['agentId', 'customerId'],
+        required: ['customerId'],
         properties: {
           agentId:    { type: 'string', minLength: 1, maxLength: 128, pattern: '^[a-zA-Z0-9_.@:=-]+$' },
           customerId: { type: 'string', minLength: 1, maxLength: 128, pattern: '^[a-zA-Z0-9_.@:=-]+$' },
@@ -27,7 +27,10 @@ async function sessionsRoutes(fastify) {
       },
     },
   }, async (request, reply) => {
-    const { agentId, customerId, channelRef } = request.body;
+    // agentId: from body (API key path) or from JWT sub claim
+    const agentId = request.body.agentId || request.agent?.id;
+    if (!agentId) throw new ValidationError('agentId is required');
+    const { customerId, channelRef } = request.body;
     const { id: tenantId } = request.tenant;
 
     // Build the base URL so the session service can construct the invite link
@@ -52,7 +55,7 @@ async function sessionsRoutes(fastify) {
 
   // ─── Get session ─────────────────────────────────────────────────────────────
   fastify.get('/:id', {
-    preHandler: authenticateSecret,
+    preHandler: authenticateSecretOrJwt,
     schema: {
       params: {
         type: 'object',
@@ -79,7 +82,7 @@ async function sessionsRoutes(fastify) {
 
   // ─── End session ─────────────────────────────────────────────────────────────
   fastify.delete('/:id', {
-    preHandler: authenticateSecret,
+    preHandler: authenticateSecretOrJwt,
     schema: {
       params: {
         type: 'object',

@@ -1,6 +1,7 @@
 import * as db from '../db/index.js';
 import { hashApiKey } from '../utils/token.js';
 import { UnauthorizedError } from '../utils/errors.js';
+import { authenticateJwt } from './jwt-auth.js';
 
 /**
  * Authentication middleware for Fastify.
@@ -73,4 +74,26 @@ async function authenticateSecret(request, reply) {
   request.tenant = tenant;
 }
 
-export { authenticate, authenticateSecret };
+/**
+ * Accepts secret API keys OR JWT Bearer tokens.
+ * Use for agent-facing endpoints that vendors may call via JWT SSO.
+ * Tries API key first (if header present), falls back to JWT.
+ */
+async function authenticateSecretOrJwt(request, reply) {
+  const apiKey = _extractKey(request);
+
+  if (apiKey) {
+    // API key path
+    const tenant = await _resolveTenant(apiKey);
+    if (tenant.keyType !== 'secret') {
+      throw new UnauthorizedError('This endpoint requires a secret API key (cb_sk_...)');
+    }
+    request.tenant = tenant;
+    return;
+  }
+
+  // JWT path (Authorization: Bearer or ?token=)
+  await authenticateJwt(request);
+}
+
+export { authenticate, authenticateSecret, authenticateSecretOrJwt };

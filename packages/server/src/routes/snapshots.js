@@ -1,6 +1,6 @@
 import * as sessionService from '../services/session.js';
 import * as ablyService from '../services/ably.js';
-import { authenticate, authenticateSecret } from '../middleware/auth.js';
+import { authenticate, authenticateSecretOrJwt } from '../middleware/auth.js';
 import { verifyCustomerToken } from '../utils/token.js';
 import { UnauthorizedError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { snapshotSizeBytes } from '../utils/metrics.js';
@@ -94,7 +94,7 @@ async function snapshotsRoutes(fastify) {
 
   // ─── Fetch snapshot (called by agent panel) ──────────────────────────────────
   fastify.get('/:sessionId', {
-    preHandler: authenticateSecret,
+    preHandler: authenticateSecretOrJwt,
     schema: {
       params: {
         type: 'object',

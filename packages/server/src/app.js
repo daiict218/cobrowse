@@ -108,6 +108,7 @@ async function buildApp() {
     methods:     ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
+      'Authorization',
       'X-API-Key',
       'X-CB-Secret-Key',
       'X-CB-Public-Key',
@@ -344,6 +345,10 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
   // Consent page — customer-facing HTML
   const consentRoutes = (await import('./routes/consent.js')).default;
   app.register(consentRoutes, { prefix: '/consent' });
+
+  // Embed viewer — iframe-friendly session viewer for vendor integration (JWT auth)
+  const embedRoutes = (await import('./routes/embed.js')).default;
+  app.register(embedRoutes, { prefix: '/embed' });
 
   return app;
 }
