@@ -73,8 +73,15 @@ async function startSession() {
     showSessionSection(res);
     startTimer();
 
-    // Connect to Ably to watch for customer consent + DOM events
-    await connectToSession(res);
+    // Start polling for session status + snapshot as a reliable fallback.
+    // This works even if the Ably connection is slow or blocked.
+    startSessionPoll();
+
+    // Connect to Ably in the background (non-blocking) for real-time events.
+    // If Ably connects, events arrive faster. If not, polling handles everything.
+    connectToSession(res).catch((err) => {
+      logEvent('warn', `Ably connection issue: ${err.message} — using polling fallback`);
+    });
 
   } catch (err) {
     logEvent('error', err.message);
@@ -114,6 +121,7 @@ async function connectToSession({ sessionId: sid }) {
 function handleSysEvent(type, data) {
   switch (type) {
     case 'customer.joined':
+      clearInterval(sessionPollInterval); // stop polling — Ably is working
       logEvent('customer.joined', 'Customer connected — fetching snapshot…');
       updateStatus('active', 'Session Active');
       startSnapshotPoll();
@@ -136,6 +144,35 @@ function handleSysEvent(type, data) {
     default:
       logEvent(type, JSON.stringify(data));
   }
+}
+
+// ─── Session status polling (fallback when Ably is slow/blocked) ─────────────
+// Polls the session status API every 2 seconds. When the session becomes active
+// (customer consented), starts snapshot polling. Works independently of Ably.
+let sessionPollInterval = null;
+
+function startSessionPoll() {
+  let alreadyActive = false;
+
+  sessionPollInterval = setInterval(async () => {
+    if (!sessionId || alreadyActive) return;
+
+    try {
+      const res = await apiCall('GET', `/api/v1/sessions/${sessionId}`, null);
+
+      if (res.status === 'active' && !alreadyActive) {
+        alreadyActive = true;
+        clearInterval(sessionPollInterval);
+        logEvent('customer.joined', 'Customer connected (detected via polling)');
+        updateStatus('active', 'Session Active');
+        startSnapshotPoll();
+      } else if (res.status === 'ended') {
+        clearInterval(sessionPollInterval);
+        logEvent('session.ended', `Session ended. Reason: ${res.endReason || 'unknown'}`);
+        teardown('ended');
+      }
+    } catch { /* non-fatal */ }
+  }, 2000);
 }
 
 // ─── Snapshot polling ─────────────────────────────────────────────────────────
@@ -293,6 +330,7 @@ async function endSession() {
 function teardown(reason) {
   clearInterval(timerInterval);
   clearInterval(snapshotPollInterval);
+  clearInterval(sessionPollInterval);
   ablyClient?.connection.close();
 
   replayer = null;
