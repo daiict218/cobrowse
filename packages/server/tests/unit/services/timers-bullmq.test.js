@@ -92,8 +92,17 @@ let logAuditEvent;
 
 async function initAndWait() {
   timers.init({ endSession, publishIdleWarning, logAuditEvent });
-  // The BullMQ backend's _init() is async — wait one tick for it to complete
-  await new Promise((r) => setTimeout(r, 0));
+  // _init() performs two sequential `await import(...)` calls (bullmq, ioredis)
+  // then synchronous constructors. Each dynamic import is a microtask boundary.
+  // Use vi.waitFor() to reliably wait for the full async chain to settle.
+  await vi.waitFor(() => {
+    if (!state.capturedProcessor) throw new Error('_init not complete');
+  });
+}
+
+/** Flush async .catch() chains and Promise.all() in BullMQ backend methods */
+async function flushAsync() {
+  await vi.waitFor(() => {}, { interval: 1 });
 }
 
 beforeEach(async () => {
@@ -128,7 +137,7 @@ describe('init', () => {
 describe('scheduleMaxDuration', () => {
   it('adds a max-duration job with correct delay and deterministic jobId', async () => {
     timers.scheduleMaxDuration('s1', 't1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     expect(state.mockQueue.add).toHaveBeenCalledWith(
       'max-duration',
@@ -143,14 +152,14 @@ describe('scheduleMaxDuration', () => {
 
   it('removes existing job before adding new one', async () => {
     timers.scheduleMaxDuration('s1', 't1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     const firstJob = mockJobs.get('max-duration_s1');
     expect(firstJob).toBeDefined();
 
     // Schedule again — _addJob should call getJob then remove
     timers.scheduleMaxDuration('s1', 't1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     expect(state.mockQueue.getJob).toHaveBeenCalledWith('max-duration_s1');
     expect(firstJob.remove).toHaveBeenCalled();
@@ -160,7 +169,7 @@ describe('scheduleMaxDuration', () => {
 describe('resetIdleTimer', () => {
   it('writes last_activity timestamp to cache', async () => {
     timers.resetIdleTimer('s1', 't1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     expect(cache.set).toHaveBeenCalledWith(
       'last_activity:s1',
@@ -171,7 +180,7 @@ describe('resetIdleTimer', () => {
 
   it('adds idle-warning and idle-timeout jobs', async () => {
     timers.resetIdleTimer('s1', 't1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     expect(state.mockQueue.add).toHaveBeenCalledWith(
       'idle-warning',
@@ -192,7 +201,7 @@ describe('touchSession — hot path optimization', () => {
     state.mockQueue.add.mockClear();
 
     timers.touchSession('s1', 't1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     expect(cache.set).toHaveBeenCalledTimes(1);
     expect(cache.set).toHaveBeenCalledWith(
@@ -206,7 +215,7 @@ describe('touchSession — hot path optimization', () => {
     state.mockQueue.add.mockClear();
 
     timers.touchSession('s1', 't1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     expect(state.mockQueue.add).not.toHaveBeenCalled();
   });
@@ -216,12 +225,12 @@ describe('clearTimers', () => {
   it('removes all three job types from queue', async () => {
     timers.scheduleMaxDuration('s1', 't1');
     timers.resetIdleTimer('s1', 't1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     state.mockQueue.getJob.mockClear();
 
     timers.clearTimers('s1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     expect(state.mockQueue.getJob).toHaveBeenCalledWith('max-duration_s1');
     expect(state.mockQueue.getJob).toHaveBeenCalledWith('idle-warning_s1');
@@ -230,7 +239,7 @@ describe('clearTimers', () => {
 
   it('deletes last_activity cache key', async () => {
     timers.clearTimers('s1');
-    await new Promise((r) => setTimeout(r, 0));
+    await flushAsync();
 
     expect(cache.del).toHaveBeenCalledWith('last_activity:s1');
   });
