@@ -3,6 +3,7 @@ import * as ablyService from '../services/ably.js';
 import { authenticate, authenticateSecret } from '../middleware/auth.js';
 import { verifyCustomerToken } from '../utils/token.js';
 import { UnauthorizedError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { snapshotSizeBytes } from '../utils/metrics.js';
 
 /**
  * Snapshot routes — DOM snapshot store and retrieve.
@@ -66,6 +67,8 @@ async function snapshotsRoutes(fastify) {
       : (snapshot && typeof snapshot === 'object' && Object.keys(snapshot).length > 0);
 
     if (isNonEmptySnapshot) {
+      snapshotSizeBytes.observe(Buffer.byteLength(JSON.stringify(snapshot), 'utf8'));
+
       // Detect navigation re-upload (a snapshot already exists for this session)
       const existingSnapshot = await sessionService.fetchSnapshot(sessionId);
       await sessionService.storeSnapshot(sessionId, snapshot);

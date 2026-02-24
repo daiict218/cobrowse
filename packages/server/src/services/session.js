@@ -7,6 +7,11 @@ import { generateCustomerToken } from '../utils/token.js';
 import { NotFoundError, ConflictError, ForbiddenError } from '../utils/errors.js';
 import config from '../config.js';
 import logger from '../utils/logger.js';
+import {
+  activeSessions,
+  sessionLifecycleTotal,
+  sessionEndReasonsTotal,
+} from '../utils/metrics.js';
 
 /**
  * Session service — owns the lifecycle of every co-browse session.
@@ -95,6 +100,9 @@ async function createSession({ tenantId, agentId, customerId, channelRef, server
   timers.scheduleMaxDuration(session.id, tenantId);
 
   const inviteUrl = `${serverBaseUrl}/consent/${session.id}`;
+
+  sessionLifecycleTotal.inc({ event: 'created' });
+  activeSessions.inc({ status: 'pending' });
 
   logger.info({ sessionId: session.id, tenantId, agentId, customerId }, 'session created');
 
@@ -187,6 +195,10 @@ async function recordConsent({ sessionId, customerId }) {
   // Start the idle timer now that both parties are expected to be active
   timers.resetIdleTimer(sessionId, session.tenant_id);
 
+  sessionLifecycleTotal.inc({ event: 'consented' });
+  activeSessions.dec({ status: 'pending' });
+  activeSessions.inc({ status: 'active' });
+
   logger.info({ sessionId, customerId }, 'customer consented — session active');
 
   return { customerToken, session: updated.rows[0] };
@@ -200,6 +212,8 @@ async function recordDecline({ sessionId, customerId }) {
 
   const session = result.rows[0];
   if (session.customer_id !== customerId) throw new ForbiddenError('Customer ID mismatch');
+
+  sessionLifecycleTotal.inc({ event: 'declined' });
 
   await endSession(sessionId, session.tenant_id, 'customer_declined');
 
@@ -292,6 +306,15 @@ async function endSession(sessionId, tenantId, reason = 'agent') {
   }
 
   const session = result.rows[0];
+
+  sessionLifecycleTotal.inc({ event: 'ended' });
+  sessionEndReasonsTotal.inc({ reason });
+  // Decrement the appropriate gauge — if customer had joined it was active, otherwise pending
+  if (session.customer_joined_at) {
+    activeSessions.dec({ status: 'active' });
+  } else {
+    activeSessions.dec({ status: 'pending' });
+  }
 
   // Clear agent's active session lock
   await cache.del(ACTIVE_SESSION_KEY(tenantId, session.agent_id));

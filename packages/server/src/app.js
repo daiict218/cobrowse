@@ -10,6 +10,7 @@ import logger from './utils/logger.js';
 import * as db from './db/index.js';
 import cache from './cache/index.js';
 import { AppError } from './utils/errors.js';
+import * as metrics from './utils/metrics.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -203,8 +204,13 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
 </html>`);
   });
 
-  // ─── Request logging ──────────────────────────────────────────────────────────
+  // ─── Prometheus metrics ──────────────────────────────────────────────────────
+  await app.register(metrics.metricsPlugin);
+
+  // ─── Request logging + metrics ─────────────────────────────────────────────
   app.addHook('onRequest', async (request) => {
+    request.startTime = process.hrtime.bigint();
+    metrics.httpActiveConnections.inc();
     logger.info(
       { method: request.method, url: request.url, ip: request.ip },
       'incoming request'
@@ -212,6 +218,18 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
   });
 
   app.addHook('onResponse', async (request, reply) => {
+    metrics.httpActiveConnections.dec();
+    const route = request.routeOptions?.url || request.url;
+    const labels = {
+      method: request.method,
+      route,
+      status_code: reply.statusCode,
+    };
+    if (request.startTime) {
+      const duration = Number(process.hrtime.bigint() - request.startTime) / 1e9;
+      metrics.httpRequestDuration.observe(labels, duration);
+    }
+    metrics.httpRequestsTotal.inc(labels);
     logger.info(
       { method: request.method, url: request.url, statusCode: reply.statusCode },
       'request handled'
