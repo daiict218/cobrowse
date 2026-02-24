@@ -1,0 +1,37 @@
+# Non-secret configuration for the CoBrowse server.
+# Secrets (API keys, DB password, TOKEN_SECRET) live in secret.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cobrowse-config
+  namespace: cobrowse
+  labels:
+    app.kubernetes.io/name: cobrowse-server
+    app.kubernetes.io/part-of: cobrowse
+data:
+  NODE_ENV: "production"
+  PORT: "4000"
+  HOST: "0.0.0.0"
+
+  # ─── Cache + distributed timers ─────────────────────────────────────────────
+  # Redis is required for multi-instance. BullMQ session timers survive restarts
+  # and are picked up by any pod.
+  CACHE_DRIVER: "redis"
+
+  # ─── Session limits ─────────────────────────────────────────────────────────
+  SESSION_MAX_DURATION_MINUTES: "120"
+  SESSION_IDLE_TIMEOUT_MINUTES: "10"
+  SNAPSHOT_TTL_SECONDS: "7200"
+
+  # ─── Recording ──────────────────────────────────────────────────────────────
+  # Use S3 in multi-instance — filesystem recordings are local to one pod.
+  RECORDING_DRIVER: "s3"
+  RECORDING_S3_REGION: "us-east-1"
+  RECORDING_S3_PREFIX: "recordings/"
+
+  # ─── Observability ──────────────────────────────────────────────────────────
+  METRICS_ENABLED: "true"
+  LOG_LEVEL: "info"
+
+  # ─── Security ───────────────────────────────────────────────────────────────
+  DB_SSL: "true"
