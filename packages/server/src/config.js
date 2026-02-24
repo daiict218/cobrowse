@@ -80,6 +80,10 @@ const config = {
   logging: {
     level: optionalEnv('LOG_LEVEL', 'info'),
   },
+
+  metrics: {
+    enabled: optionalEnv('METRICS_ENABLED', 'true') === 'true',
+  },
 };
 
 export default config;

@@ -1,6 +1,7 @@
 import pg from 'pg';
 import config from '../config.js';
 import logger from '../utils/logger.js';
+import { dbQueryDuration, dbQueryErrorsTotal } from '../utils/metrics.js';
 
 const { Pool } = pg;
 
@@ -32,9 +33,12 @@ async function query(text, params) {
   const start = Date.now();
   try {
     const result = await pool.query(text, params);
-    logger.debug({ query: text, duration: Date.now() - start, rows: result.rowCount }, 'db query');
+    const durationMs = Date.now() - start;
+    dbQueryDuration.observe(durationMs / 1000);
+    logger.debug({ query: text, duration: durationMs, rows: result.rowCount }, 'db query');
     return result;
   } catch (err) {
+    dbQueryErrorsTotal.inc();
     logger.error({ err, query: text }, 'db query error');
     throw err;
   }

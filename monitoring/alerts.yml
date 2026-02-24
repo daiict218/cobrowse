@@ -1,0 +1,68 @@
+groups:
+  - name: cobrowse-server
+    rules:
+      - alert: HighErrorRate
+        expr: >
+          sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High HTTP 5xx error rate
+          description: >
+            More than 5% of requests are returning 5xx errors
+            over the last 5 minutes.
+
+      - alert: HighRequestLatency
+        expr: >
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+          > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High P95 request latency
+          description: >
+            P95 HTTP request latency is above 2 seconds
+            over the last 5 minutes.
+
+      - alert: DatabaseErrorSpike
+        expr: rate(cobrowse_db_query_errors_total[2m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Database error spike
+          description: >
+            Database query errors are occurring at more than
+            0.1 per second over the last 2 minutes.
+
+      - alert: SlowDatabaseQueries
+        expr: >
+          histogram_quantile(0.95, sum(rate(cobrowse_db_query_duration_seconds_bucket[3m])) by (le))
+          > 0.5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: Slow database queries
+          description: >
+            P95 database query duration is above 500ms
+            over the last 3 minutes.
+
+      - alert: LowCacheHitRate
+        expr: >
+          sum(rate(cobrowse_cache_operations_total{operation="get",result="hit"}[5m]))
+          /
+          sum(rate(cobrowse_cache_operations_total{operation="get"}[5m]))
+          < 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Low cache hit rate
+          description: >
+            Cache hit rate is below 50% over the last 5 minutes.

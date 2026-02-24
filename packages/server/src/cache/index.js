@@ -1,5 +1,6 @@
 import config from '../config.js';
 import logger from '../utils/logger.js';
+import { cacheOperationsTotal } from '../utils/metrics.js';
 
 /**
  * Cache abstraction layer.
@@ -130,5 +131,13 @@ if (config.cache.driver === 'redis') {
   logger.info('Cache driver: in-memory (use CACHE_DRIVER=redis in production)');
   cache = new MemoryCache();
 }
+
+// Wrap cache.get to track hit/miss metrics
+const originalGet = cache.get.bind(cache);
+cache.get = async function(key) {
+  const value = await originalGet(key);
+  cacheOperationsTotal.inc({ operation: 'get', result: value !== null ? 'hit' : 'miss' });
+  return value;
+};
 
 export default cache;
