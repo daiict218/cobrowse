@@ -26,9 +26,9 @@ var CoBrowse = (() => {
     mod
   ));
 
-  // node_modules/ably/build/ably.js
+  // ../../node_modules/ably/build/ably.js
   var require_ably = __commonJS({
-    "node_modules/ably/build/ably.js"(exports, module) {
+    "../../node_modules/ably/build/ably.js"(exports, module) {
       (function(g, f) {
         if ("object" == typeof exports && "object" == typeof module) {
           module.exports = f();
@@ -10074,9 +10074,9 @@ var CoBrowse = (() => {
     }
   });
 
-  // packages/sdk/src/transport.js
+  // src/transport.js
   var require_transport = __commonJS({
-    "packages/sdk/src/transport.js"(exports, module) {
+    "src/transport.js"(exports, module) {
       "use strict";
       var BATCH_INTERVAL_MS = 80;
       var MAX_BATCH_SIZE = 50;
@@ -10167,9 +10167,9 @@ var CoBrowse = (() => {
     }
   });
 
-  // packages/sdk/src/masking.js
+  // src/masking.js
   var require_masking = __commonJS({
-    "packages/sdk/src/masking.js"(exports, module) {
+    "src/masking.js"(exports, module) {
       "use strict";
       var DEFAULT_MASK_TYPES = ["password"];
       var DEFAULT_SELECTORS = [
@@ -10230,9 +10230,9 @@ var CoBrowse = (() => {
     }
   });
 
-  // packages/sdk/src/capture.js
+  // src/capture.js
   var require_capture = __commonJS({
-    "packages/sdk/src/capture.js"(exports, module) {
+    "src/capture.js"(exports, module) {
       "use strict";
       var { buildMaskSelector, sanitiseEvent } = require_masking();
       var Capture = class {
@@ -10311,9 +10311,9 @@ var CoBrowse = (() => {
     }
   });
 
-  // packages/sdk/src/indicator.js
+  // src/indicator.js
   var require_indicator = __commonJS({
-    "packages/sdk/src/indicator.js"(exports, module) {
+    "src/indicator.js"(exports, module) {
       "use strict";
       var BANNER_ID = "__cobrowse_banner__";
       var POINTER_ID = "__cobrowse_pointer__";
@@ -10436,9 +10436,9 @@ var CoBrowse = (() => {
     }
   });
 
-  // packages/sdk/src/session.js
+  // src/session.js
   var require_session = __commonJS({
-    "packages/sdk/src/session.js"(exports, module) {
+    "src/session.js"(exports, module) {
       "use strict";
       var { Transport } = require_transport();
       var { Capture } = require_capture();
@@ -10769,8 +10769,17 @@ var CoBrowse = (() => {
               if (res.ok) {
                 const data = await res.json();
                 if (data.sessionId && this._state !== "active") {
-                  this._handleActivate(data);
-                  return;
+                  if (data.status === "pending" && this._state === "idle") {
+                    this._handleInvite({
+                      sessionId: data.sessionId,
+                      agentId: data.agentId,
+                      inviteUrl: data.inviteUrl
+                    });
+                    return;
+                  } else if (data.status === "active" || data.customerToken) {
+                    this._handleActivate(data);
+                    return;
+                  }
                 }
               }
             } catch {
@@ -10833,9 +10842,9 @@ var CoBrowse = (() => {
     }
   });
 
-  // packages/sdk/src/index.js
+  // src/index.js
   var require_src = __commonJS({
-    "packages/sdk/src/index.js"(exports, module) {
+    "src/index.js"(exports, module) {
       var { Session } = require_session();
       var _session = null;
       var _plugins = [];

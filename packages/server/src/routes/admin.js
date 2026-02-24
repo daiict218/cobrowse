@@ -144,9 +144,14 @@ async function publicRoutes(fastify) {
   });
 
   // ─── Pending activation (SDK polls this after init) ──────────────────────────
-  // Returns { sessionId, customerToken } if there is a consented-but-not-yet-
-  // streaming session for this customer. The SDK uses this as a fallback when the
-  // Ably 'activate' event was published before the SDK finished subscribing.
+  // Returns session info for the most recent pending or active session for this
+  // customer. The SDK uses this as a reliable fallback when the Ably invite or
+  // activate event is missed (timing, connection delay, page load order).
+  //
+  // For 'pending' sessions: returns { sessionId, status: 'pending' } so the SDK
+  // can show the consent overlay even if the Ably invite was missed.
+  // For 'active' sessions: returns { sessionId, customerToken, status: 'active' }
+  // so the SDK can resume capture.
   fastify.get('/pending-activation', async (request, reply) => {
     const publicKey = request.headers['x-cb-public-key'] || request.query.publicKey;
     if (!publicKey) { reply.code(401).send({ error: 'Public key required' }); return; }
@@ -163,11 +168,11 @@ async function publicRoutes(fastify) {
 
     const tenantId = tenantResult.rows[0].id;
 
-    // Find the most recent active session for this customer
+    // Find the most recent pending or active session for this customer
     const sessionResult = await db.query(
-      `SELECT id FROM sessions
-       WHERE tenant_id = $1 AND customer_id = $2 AND status = 'active'
-       ORDER BY customer_joined_at DESC LIMIT 1`,
+      `SELECT id, status, agent_id FROM sessions
+       WHERE tenant_id = $1 AND customer_id = $2 AND status IN ('pending', 'active')
+       ORDER BY created_at DESC LIMIT 1`,
       [tenantId, customerId]
     );
 
@@ -175,9 +180,20 @@ async function publicRoutes(fastify) {
       return reply.send({ sessionId: null });
     }
 
-    const sessionId = sessionResult.rows[0].id;
-    const customerToken = generateCustomerToken(sessionId, customerId, tenantId);
-    reply.send({ sessionId, customerToken });
+    const { id: sessionId, status, agent_id: agentId } = sessionResult.rows[0];
+
+    if (status === 'active') {
+      const customerToken = generateCustomerToken(sessionId, customerId, tenantId);
+      reply.send({ sessionId, customerToken, status: 'active' });
+    } else {
+      // Pending — SDK should show consent overlay
+      reply.send({
+        sessionId,
+        status: 'pending',
+        agentId,
+        inviteUrl: `${request.protocol}://${request.hostname}/consent/${sessionId}`,
+      });
+    }
   });
 }
 

@@ -436,8 +436,18 @@ class Session {
         if (res.ok) {
           const data = await res.json();
           if (data.sessionId && this._state !== 'active') {
-            this._handleActivate(data);
-            return; // activated — stop polling
+            if (data.status === 'pending' && this._state === 'idle') {
+              // Pending invite — show consent overlay (fallback for missed Ably invite)
+              this._handleInvite({
+                sessionId: data.sessionId,
+                agentId: data.agentId,
+                inviteUrl: data.inviteUrl,
+              });
+              return; // stop polling — consent overlay is showing
+            } else if (data.status === 'active' || data.customerToken) {
+              this._handleActivate(data);
+              return; // activated — stop polling
+            }
           }
         }
       } catch { /* non-fatal */ }
