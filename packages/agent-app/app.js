@@ -37,6 +37,8 @@ let timerInterval = null;
 let startTime    = null;
 let pointerMode  = false;
 let snapshotPollInterval = null;
+let domEventPollInterval = null;
+let domEventSeq  = 0;
 
 // ─── Session start ─────────────────────────────────────────────────────────────
 async function startSession() {
@@ -202,6 +204,35 @@ function startSnapshotPoll() {
   }, 1000);
 }
 
+// ─── DOM event polling (HTTP fallback when Ably WebSocket is blocked) ────────
+// Polls the server for incremental DOM events that the customer SDK posted via
+// HTTP. This ensures the agent sees typing, scrolling, and clicks even when
+// Ably WebSocket connections are blocked (e.g. Brave browser shields).
+function startDomEventPoll() {
+  domEventSeq = 0;
+
+  domEventPollInterval = setInterval(async () => {
+    if (!sessionId || !replayer) return;
+
+    try {
+      const res = await apiCall('GET', `/api/v1/dom-events/${sessionId}?since=${domEventSeq}`, null);
+      if (res.events && res.events.length > 0) {
+        logEvent('dom-http', `Received ${res.events.length} event(s) via HTTP relay (seq: ${domEventSeq} → ${res.nextSeq})`);
+        for (const event of res.events) {
+          replayer.addEvent(event);
+          // Track URL changes
+          if (event.type === 4 /* META */ && event.data?.href) {
+            document.getElementById('url-display').textContent = event.data.href;
+          }
+        }
+        domEventSeq = res.nextSeq;
+      }
+    } catch {
+      // Non-fatal — will retry next poll
+    }
+  }, 150); // Poll ~7x/sec for near-real-time feel
+}
+
 // ─── Refresh replayer on navigation ──────────────────────────────────────────
 // Called when the server signals that the customer navigated (snapshot.updated).
 // Feeds the new [meta, fullSnapshot] into the existing live replayer so the agent
@@ -271,6 +302,11 @@ function initReplayer(snapshotData) {
   });
 
   logEvent('replayer', 'Live replay started');
+
+  // Start HTTP DOM event polling — works even when Ably WebSocket is blocked.
+  // If Ably IS connected, events arrive via both channels; the replayer handles
+  // duplicate events gracefully (rrweb deduplicates by timestamp).
+  startDomEventPoll();
 }
 
 // ─── DOM events from customer ─────────────────────────────────────────────────
@@ -331,12 +367,14 @@ function teardown(reason) {
   clearInterval(timerInterval);
   clearInterval(snapshotPollInterval);
   clearInterval(sessionPollInterval);
+  clearInterval(domEventPollInterval);
   ablyClient?.connection.close();
 
   replayer = null;
   ablyClient = null;
   sessionId  = null;
   pointerMode = false;
+  domEventSeq = 0;
 
   updateStatus('ended', `Ended (${reason})`);
 

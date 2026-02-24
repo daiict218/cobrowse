@@ -6,6 +6,22 @@ const logger   = require('./utils/logger');
 const db       = require('./db');
 
 async function start() {
+  // Clean up ALL pending/active sessions from previous server runs.
+  // In-process timers (idle, max-duration) don't survive restarts, so any
+  // leftover sessions would be orphaned. End them to prevent the SDK from
+  // picking up stale sessions via polling.
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE sessions SET status = 'ended', ended_at = NOW(), end_reason = 'server_restart'
+       WHERE status IN ('pending', 'active')`
+    );
+    if (rowCount > 0) {
+      logger.info({ count: rowCount }, 'cleaned up stale sessions on startup');
+    }
+  } catch (err) {
+    logger.warn({ err }, 'failed to clean up stale sessions (non-fatal)');
+  }
+
   const app = await buildApp();
 
   try {

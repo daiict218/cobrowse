@@ -235,9 +235,10 @@ async function buildApp() {
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }));
 
   // API v1 — agent-facing
-  app.register(require('./routes/sessions'),  { prefix: '/api/v1/sessions' });
-  app.register(require('./routes/snapshots'), { prefix: '/api/v1/snapshots' });
-  app.register(require('./routes/ably-auth'), { prefix: '/api/v1/ably-auth' });
+  app.register(require('./routes/sessions'),    { prefix: '/api/v1/sessions' });
+  app.register(require('./routes/snapshots'),   { prefix: '/api/v1/snapshots' });
+  app.register(require('./routes/dom-events'),  { prefix: '/api/v1/dom-events' });
+  app.register(require('./routes/ably-auth'),   { prefix: '/api/v1/ably-auth' });
 
   // API v1 — admin
   const { adminRoutes, publicRoutes } = require('./routes/admin');

@@ -168,10 +168,17 @@ async function publicRoutes(fastify) {
 
     const tenantId = tenantResult.rows[0].id;
 
-    // Find the most recent pending or active session for this customer
+    // Find the most recent pending or active session for this customer.
+    // Pending sessions older than 10 minutes are stale (agent likely moved on).
+    // Active sessions older than 2 hours are beyond max duration.
     const sessionResult = await db.query(
       `SELECT id, status, agent_id FROM sessions
-       WHERE tenant_id = $1 AND customer_id = $2 AND status IN ('pending', 'active')
+       WHERE tenant_id = $1 AND customer_id = $2
+         AND (
+           (status = 'pending' AND created_at > NOW() - INTERVAL '10 minutes')
+           OR
+           (status = 'active' AND created_at > NOW() - INTERVAL '2 hours')
+         )
        ORDER BY created_at DESC LIMIT 1`,
       [tenantId, customerId]
     );

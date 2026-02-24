@@ -46,6 +46,18 @@ async function createSession({ tenantId, agentId, customerId, channelRef, server
     await endSession(activeSessionId, tenantId, 'agent_new_session');
   }
 
+  // Also end any stale pending/active sessions for this customer to prevent
+  // the SDK from picking up an old session via polling.
+  const staleCustomerSessions = await db.query(
+    `SELECT id FROM sessions
+     WHERE tenant_id = $1 AND customer_id = $2 AND status IN ('pending', 'active')`,
+    [tenantId, customerId]
+  );
+  for (const row of staleCustomerSessions.rows) {
+    logger.info({ sessionId: row.id, customerId }, 'auto-ending stale customer session');
+    await endSession(row.id, tenantId, 'superseded');
+  }
+
   const result = await db.query(
     `INSERT INTO sessions (tenant_id, agent_id, customer_id, channel_ref, invite_sent_at)
      VALUES ($1, $2, $3, $4, NOW())
@@ -344,6 +356,40 @@ function _clearTimers(sessionId) {
   }
 }
 
+// ─── DOM Event Buffer (HTTP relay for when Ably is blocked) ──────────────────
+// Stores incremental DOM events in cache so the agent can poll via HTTP.
+// Keeps the last MAX_BUFFERED_EVENTS per session to bound memory usage.
+
+const DOM_EVENTS_KEY = (sessionId) => `dom_events:${sessionId}`;
+const MAX_BUFFERED_EVENTS = 2000;
+
+async function bufferDomEvents(sessionId, events) {
+  const key = DOM_EVENTS_KEY(sessionId);
+  let buffer = await cache.get(key);
+  if (!buffer) buffer = [];
+
+  for (const event of events) {
+    buffer.push(event);
+  }
+
+  // Trim old events to bound memory
+  if (buffer.length > MAX_BUFFERED_EVENTS) {
+    buffer = buffer.slice(buffer.length - MAX_BUFFERED_EVENTS);
+  }
+
+  await cache.set(key, buffer, config.session.maxDurationMinutes * 60);
+}
+
+async function getDomEvents(sessionId, since) {
+  const key = DOM_EVENTS_KEY(sessionId);
+  const buffer = await cache.get(key);
+  if (!buffer || !buffer.length) return { events: [], nextSeq: 0 };
+
+  const startIndex = Math.max(0, Math.min(since, buffer.length));
+  const events = buffer.slice(startIndex);
+  return { events, nextSeq: buffer.length };
+}
+
 module.exports = {
   createSession,
   getSession,
@@ -354,5 +400,7 @@ module.exports = {
   recordUrlChange,
   storeSnapshot,
   fetchSnapshot,
+  bufferDomEvents,
+  getDomEvents,
   endSession,
 };
