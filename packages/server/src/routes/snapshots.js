@@ -71,7 +71,7 @@ async function snapshotsRoutes(fastify) {
 
       // Detect navigation re-upload (a snapshot already exists for this session)
       const existingSnapshot = await sessionService.fetchSnapshot(sessionId);
-      await sessionService.storeSnapshot(sessionId, snapshot);
+      await sessionService.storeSnapshot(sessionId, snapshot, tokenPayload.tenantId);
 
       if (!existingSnapshot) {
         // Initial snapshot — customer is now fully connected
