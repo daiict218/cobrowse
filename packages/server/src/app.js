@@ -41,7 +41,7 @@ async function buildApp() {
         defaultSrc: ["'self'"],
         scriptSrc:  ["'self'", "'unsafe-inline'"],  // consent page needs inline script
         styleSrc:   ["'self'", "'unsafe-inline'"],
-        connectSrc: ["'self'", '*.ably.io', 'realtime.ably.io', 'ws:', 'wss:'],
+        connectSrc: ["'self'", '*.ably.io', '*.ably.com', 'realtime.ably.io', 'realtime.ably.com', 'ws:', 'wss:'],
       },
     },
   });
