@@ -3,12 +3,17 @@
 /**
  * Agent Console — Demo Application
  *
- * Uses the CoBrowse Agent SDK for session management.
- * The viewer opens in a separate browser window (embed viewer).
+ * Follows the documented agent integration flow:
+ *   1. Agent clicks "Start Co-Browse"
+ *   2. Frontend calls backend → backend calls CoBrowse API (POST /api/v1/sessions)
+ *   3. Backend mints a JWT and returns { sessionId, viewerUrl }
+ *   4. Frontend opens viewerUrl in a new window
  *
- * Supports two auth modes:
- *   1. API Key mode (default) — uses the secret key from demo config
- *   2. JWT Demo Mode — fetches a demo JWT from the server, uses Agent SDK with JWT auth
+ * In this demo, the browser simulates the "vendor backend" step by calling
+ * the CoBrowse API directly (with the demo secret key) and using the
+ * /api/v1/admin/demo-jwt endpoint for JWT generation.
+ *
+ * In production, the secret key and JWT signing happen server-side only.
  */
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -19,22 +24,46 @@ const CONFIG = {
 };
 
 // ─── State ────────────────────────────────────────────────────────────────────
-let agent        = null; // CoBrowseAgent SDK instance
-let sessionId    = null;
-let agentId      = null;
-let timerInterval = null;
-let startTime    = null;
-let sessionPollInterval = null;
+let sessionId      = null;
+let viewerUrl      = null;
+let viewerWindow   = null;
+let agentId        = null;
+let timerInterval  = null;
+let startTime      = null;
+let pollInterval   = null;
 
-// ─── Session start ─────────────────────────────────────────────────────────────
+// ─── API helper (simulates vendor backend calls to CoBrowse API) ─────────────
+async function apiCall(method, path, body) {
+  const options = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': CONFIG.secretKey,
+    },
+  };
+  if (body) options.body = JSON.stringify(body);
+
+  const res = await fetch(`${CONFIG.serverUrl}${path}`, options);
+  if (res.status === 204) return {};
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  return data;
+}
+
+// ─── Start session (documented flow) ─────────────────────────────────────────
 async function startSession() {
   const agentIdInput    = document.getElementById('input-agent-id').value.trim();
   const customerIdInput = document.getElementById('input-customer-id').value.trim();
   const channelRef      = document.getElementById('input-channel-ref').value.trim();
-  const jwtMode         = document.getElementById('chk-jwt-mode').checked;
 
   if (!agentIdInput || !customerIdInput) {
     alert('Agent ID and Customer ID are required');
+    return;
+  }
+
+  if (!CONFIG.secretKey) {
+    alert('Secret key not configured. Set DEMO_SECRET_KEY in your server .env file.');
     return;
   }
 
@@ -43,51 +72,43 @@ async function startSession() {
   setButtonState('btn-start', true, '⏳ Starting…');
 
   try {
-    // Initialize Agent SDK with appropriate auth
-    if (jwtMode) {
-      logEvent('jwt', 'Requesting demo JWT from server…');
-      const jwtRes = await apiCallRaw('POST', '/api/v1/admin/demo-jwt', { agentId: agentIdInput, agentName: agentIdInput });
-      logEvent('jwt', `JWT received (expires in ${jwtRes.expiresIn})`);
+    // ── Step 1: Create session via CoBrowse API ─────────────────────────────
+    // In production, this call is made by YOUR backend (never from the browser).
+    // The secret key stays on the server.
+    logEvent('api', 'Creating session via POST /api/v1/sessions…');
 
-      agent = CoBrowseAgent.init({
-        serverUrl: CONFIG.serverUrl,
-        jwt: jwtRes.jwt,
-      });
-    } else {
-      if (!CONFIG.secretKey) {
-        alert('Secret key not configured. Set DEMO_SECRET_KEY in your server .env file, or use JWT Demo Mode.');
-        return;
-      }
-
-      agent = CoBrowseAgent.init({
-        serverUrl: CONFIG.serverUrl,
-        secretKey: CONFIG.secretKey,
-      });
-    }
-
-    // Wire up SDK event listeners
-    agent.on('session.created', (data) => logEvent('session.created', `Session ${data.sessionId.slice(0,8)}…`));
-    agent.on('session.ended', (data) => logEvent('session.ended', `Session ${data.sessionId} ended`));
-    agent.on('viewer.opened', (data) => {
-      logEvent('viewer', `Viewer window opened for ${data.sessionId.slice(0,8)}…`);
-      document.getElementById('info-placeholder').style.display = 'none';
-      document.getElementById('viewer-status').style.display = 'flex';
-    });
-    agent.on('viewer.closed', (data) => {
-      logEvent('viewer', `Viewer window closed for ${data.sessionId.slice(0,8)}…`);
-      document.getElementById('viewer-status').style.display = 'none';
-      document.getElementById('info-placeholder').style.display = 'flex';
-    });
-
-    // Create session
-    const res = await agent.createSession(customerIdInput, {
+    const sessionBody = {
+      customerId: customerIdInput,
       agentId: agentIdInput,
-      channelRef: channelRef || undefined,
+    };
+    if (channelRef) sessionBody.channelRef = channelRef;
+
+    const session = await apiCall('POST', '/api/v1/sessions', sessionBody);
+    sessionId = session.sessionId;
+
+    logEvent('session.created', `Session ${sessionId.slice(0, 8)}… created`);
+
+    // ── Step 2: Get JWT for the embed viewer ────────────────────────────────
+    // In production, your backend signs a JWT with your private key.
+    // This demo uses the /api/v1/admin/demo-jwt endpoint to simulate that.
+    logEvent('jwt', 'Requesting JWT for viewer authentication…');
+
+    const jwtRes = await apiCall('POST', '/api/v1/admin/demo-jwt', {
+      agentId: agentIdInput,
+      agentName: agentIdInput,
     });
 
-    sessionId = res.sessionId;
+    logEvent('jwt', `JWT received (expires in ${jwtRes.expiresIn})`);
 
-    showSessionSection(res);
+    // ── Step 3: Construct the viewer URL ────────────────────────────────────
+    // The embed viewer is a self-contained page hosted by CoBrowse.
+    // It handles Ably connection, rrweb rendering, and real-time updates.
+    viewerUrl = `${CONFIG.serverUrl}/embed/session/${sessionId}?token=${encodeURIComponent(jwtRes.jwt)}`;
+
+    logEvent('viewer', 'Viewer URL ready');
+
+    // ── Show session info ───────────────────────────────────────────────────
+    showSessionSection(session);
     startTimer();
     startSessionPoll();
 
@@ -101,29 +122,50 @@ async function startSession() {
 
 // ─── Open viewer in new window ──────────────────────────────────────────────
 function openViewer() {
-  if (!agent || !sessionId) return;
-  agent.openViewer(sessionId);
+  if (!viewerUrl) return;
+
+  // Open the embed viewer — same as documented:
+  // window.open(viewerUrl, 'cobrowse-viewer', 'width=1024,height=768');
+  viewerWindow = window.open(viewerUrl, 'cobrowse-viewer', 'width=1024,height=768');
+
+  if (viewerWindow) {
+    logEvent('viewer', 'Viewer window opened');
+    document.getElementById('info-placeholder').style.display = 'none';
+    document.getElementById('viewer-status').style.display = 'flex';
+
+    // Detect when viewer window is closed
+    const checkClosed = setInterval(() => {
+      if (viewerWindow && viewerWindow.closed) {
+        clearInterval(checkClosed);
+        viewerWindow = null;
+        logEvent('viewer', 'Viewer window closed');
+        document.getElementById('viewer-status').style.display = 'none';
+        document.getElementById('info-placeholder').style.display = 'flex';
+      }
+    }, 1000);
+  }
 }
 
 // ─── Session status polling ─────────────────────────────────────────────────
 function startSessionPoll() {
   let alreadyActive = false;
 
-  sessionPollInterval = setInterval(async () => {
-    if (!sessionId || !agent || alreadyActive) return;
+  pollInterval = setInterval(async () => {
+    if (!sessionId || alreadyActive) return;
 
     try {
-      const res = await agent.getSession(sessionId);
+      // Poll session status via CoBrowse API
+      const res = await apiCall('GET', `/api/v1/sessions/${sessionId}`);
 
       if (res.status === 'active' && !alreadyActive) {
         alreadyActive = true;
-        clearInterval(sessionPollInterval);
+        clearInterval(pollInterval);
         logEvent('customer.joined', 'Customer connected');
         updateStatus('active', 'Session Active');
-        // Auto-open the viewer window as soon as co-browse begins
+        // Auto-open the viewer window as soon as customer consents
         openViewer();
       } else if (res.status === 'ended') {
-        clearInterval(sessionPollInterval);
+        clearInterval(pollInterval);
         logEvent('session.ended', `Session ended. Reason: ${res.endReason || 'unknown'}`);
         teardown('ended');
       }
@@ -133,10 +175,12 @@ function startSessionPoll() {
 
 // ─── End session ──────────────────────────────────────────────────────────────
 async function endSession() {
-  if (!sessionId || !agent) return;
+  if (!sessionId) return;
   setButtonState('btn-end', true, '⏳ Ending…');
   try {
-    await agent.endSession(sessionId);
+    // In production: your frontend calls YOUR backend, which calls CoBrowse API.
+    // DELETE /api/v1/sessions/:id ends the session.
+    await apiCall('DELETE', `/api/v1/sessions/${sessionId}`);
     logEvent('session.ended', 'Session ended by agent');
     teardown('agent');
   } catch (err) {
@@ -149,13 +193,16 @@ async function endSession() {
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 function teardown(reason) {
   clearInterval(timerInterval);
-  clearInterval(sessionPollInterval);
+  clearInterval(pollInterval);
 
-  if (agent) {
-    agent.destroy();
-    agent = null;
+  // Close the viewer window if still open
+  if (viewerWindow && !viewerWindow.closed) {
+    viewerWindow.close();
   }
+  viewerWindow = null;
+
   sessionId = null;
+  viewerUrl = null;
 
   updateStatus('ended', `Ended (${reason})`);
 
@@ -210,22 +257,3 @@ function logEvent(type, message) {
 document.getElementById('btn-start').addEventListener('click', startSession);
 document.getElementById('btn-end').addEventListener('click', endSession);
 document.getElementById('btn-open-viewer').addEventListener('click', openViewer);
-
-// ─── Raw API helper (for demo-jwt endpoint — before SDK is initialized) ──────
-async function apiCallRaw(method, path, body) {
-  const options = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-Key': CONFIG.secretKey,
-    },
-  };
-  if (body) options.body = JSON.stringify(body);
-
-  const res = await fetch(`${CONFIG.serverUrl}${path}`, options);
-  if (res.status === 204) return {};
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-  return data;
-}

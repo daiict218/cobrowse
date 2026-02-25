@@ -217,3 +217,18 @@ body {
 .info-placeholder .icon { font-size: 56px; margin-bottom: 16px; }
 .info-placeholder h2 { font-size: 18px; color: var(--text); margin-bottom: 6px; }
 .info-placeholder p  { font-size: 13px; line-height: 1.6; max-width: 360px; }
+.info-placeholder .docs-link {
+  margin-top: 20px;
+  padding: 12px 18px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.info-placeholder .docs-link a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.info-placeholder .docs-link a:hover { text-decoration: underline; }

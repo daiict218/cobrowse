@@ -11,6 +11,7 @@ import TenantDetailPage from './pages/TenantDetailPage.jsx';
 import MaskingRulesPage from './pages/MaskingRulesPage.jsx';
 import SessionsPage from './pages/SessionsPage.jsx';
 import AnalyticsPage from './pages/AnalyticsPage.jsx';
+import QuickStartPage from './pages/quick-start/QuickStartPage.jsx';
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
             <Route path="tenants/:id/masking" element={<MaskingRulesPage />} />
             <Route path="tenants/:id/sessions" element={<SessionsPage />} />
             <Route path="tenants/:id/analytics" element={<AnalyticsPage />} />
+            <Route path="quick-start" element={<QuickStartPage />} />
           </Route>
           {/* /portal without trailing slash → redirect to /portal/ */}
           <Route path="/portal" element={<Navigate to="/portal/" replace />} />
