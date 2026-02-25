@@ -1,0 +1,85 @@
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 10;
+}
+
+.brand {
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brandName {
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--color-primary);
+}
+
+.brandSub {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.nav {
+  flex: 1;
+  padding: var(--space-md);
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  background: transparent;
+  text-decoration: none;
+  margin-bottom: 4px;
+  transition: background 0.15s;
+}
+
+.navLinkActive {
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.navIcon {
+  font-size: 16px;
+}
+
+.footer {
+  padding: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  font-size: 13px;
+}
+
+.userName {
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.vendorName {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.logoutBtn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 0;
+  cursor: pointer;
+}

@@ -97,9 +97,11 @@ async function buildApp() {
         'http://localhost:3001',
         'http://localhost:3002',
         'http://localhost:4000',
+        'http://localhost:5173',
         'http://127.0.0.1:3001',
         'http://127.0.0.1:3002',
         'http://127.0.0.1:4000',
+        'http://127.0.0.1:5173',
       ];
 
       if (allowed.includes(origin)) return cb(null, true);
@@ -351,6 +353,29 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
   // Embed viewer — iframe-friendly session viewer for vendor integration (JWT auth)
   const embedRoutes = (await import('./routes/embed.js')).default;
   app.register(embedRoutes, { prefix: '/embed' });
+
+  // ─── Vendor Management Portal ───────────────────────────────────────────────
+  const { portalAuthRoutes, portalTenantRoutes } = await import('./routes/portal.js');
+  app.register(portalAuthRoutes,   { prefix: '/api/v1/portal' });
+  app.register(portalTenantRoutes, { prefix: '/api/v1/portal' });
+
+  // Serve the tenant-ui SPA from /portal/
+  await app.register(fastifyStatic, {
+    root:          path.join(__dirname, '../public/tenant-ui'),
+    prefix:        '/portal/',
+    decorateReply: false,
+    wildcard:      false,
+  });
+
+  // /portal (no trailing slash) → redirect to /portal/
+  app.get('/portal', async (request, reply) => {
+    return reply.redirect('/portal/');
+  });
+
+  // SPA fallback — all /portal/* paths serve index.html for client-side routing
+  app.get('/portal/*', async (request, reply) => {
+    return reply.sendFile('index.html', path.join(__dirname, '../public/tenant-ui'));
+  });
 
   return app;
 }

@@ -1,0 +1,64 @@
+.backLink {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.success {
+  background: var(--color-success-light);
+  border: 1px solid #86efac;
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 13px;
+  color: #166534;
+  margin-bottom: var(--space-md);
+}
+
+.listSection {
+  margin-bottom: var(--space-lg);
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.listLabel {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.listRow {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.listInput {
+  flex: 1;
+}
+
+.removeBtn {
+  padding: 6px 10px;
+}
+
+.emptyHint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.helpBox {
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.helpList {
+  margin-top: 8px;
+  padding-left: 20px;
+  line-height: 1.8;
+}

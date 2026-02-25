@@ -1,0 +1,56 @@
+.formCard {
+  max-width: 560px;
+}
+
+.error {
+  background: var(--color-danger-light);
+  color: #991b1b;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: var(--space-md);
+}
+
+.fieldGroup {
+  margin-bottom: var(--space-md);
+}
+
+.fieldGroupLg {
+  margin-bottom: var(--space-lg);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.warning {
+  background: var(--color-warning-light);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: var(--space-md);
+  color: #92400e;
+}
+
+.keyGroup {
+  margin-bottom: var(--space-md);
+}
+
+.keyGroupLg {
+  margin-bottom: var(--space-lg);
+}
+
+.keyCode {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  word-break: break-all;
+}

@@ -1,0 +1,35 @@
+.noData {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.chart {
+  display: block;
+}
+
+.backLink {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.dayButtons {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+}
+
+.chartWrapper {
+  overflow-x: auto;
+}

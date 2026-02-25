@@ -1,0 +1,52 @@
+.scrollWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.th {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.row {
+  transition: background 0.1s;
+
+  &.clickable {
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg);
+    }
+  }
+}
+
+.td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md) 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.paginationButtons {
+  display: flex;
+  gap: var(--space-sm);
+}

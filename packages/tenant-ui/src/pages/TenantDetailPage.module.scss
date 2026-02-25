@@ -1,0 +1,109 @@
+.headerActions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.editCard {
+  max-width: 560px;
+}
+
+.error {
+  background: var(--color-danger-light);
+  color: #991b1b;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: var(--space-md);
+}
+
+.fieldGroup {
+  margin-bottom: var(--space-md);
+}
+
+.fieldGroupLg {
+  margin-bottom: var(--space-lg);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.detailLabel {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.detailValue {
+  font-size: 14px;
+}
+
+.sectionCard {
+  margin-bottom: var(--space-lg);
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+}
+
+.flagsList {
+  display: flex;
+  gap: var(--space-lg);
+  font-size: 14px;
+}
+
+.flagEnabled {
+  color: var(--color-success);
+}
+
+.flagDisabled {
+  color: var(--color-text-muted);
+}
+
+.quickLinks {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.warning {
+  background: var(--color-warning-light);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: var(--space-md);
+  color: #92400e;
+}
+
+.keyGroup {
+  margin-bottom: var(--space-md);
+}
+
+.keyGroupLg {
+  margin-bottom: var(--space-lg);
+}
+
+.keyCode {
+  display: block;
+  padding: var(--space-sm);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  word-break: break-all;
+}

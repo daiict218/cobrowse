@@ -29,3 +29,6 @@ coverage/
 # packages/server/public/sdk/cobrowse.js
 # packages/server/public/sdk/cobrowse.min.js
 packages/server/public/sdk/*.map
+
+# Tenant UI build output (rebuilt on deploy)
+packages/server/public/tenant-ui/
