@@ -1,8 +1,25 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+/** Redirect /portal → /portal/ so Vite doesn't show the base URL warning. */
+function portalRedirectPlugin() {
+  return {
+    name: 'portal-redirect',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url === '/portal') {
+          res.writeHead(301, { Location: '/portal/' });
+          res.end();
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), portalRedirectPlugin()],
   base: '/portal/',
   build: {
     outDir: '../server/public/tenant-ui',
