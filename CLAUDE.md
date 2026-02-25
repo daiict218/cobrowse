@@ -160,12 +160,22 @@ When proposing a plan, format it as:
 
 ## 14) Git and PR workflow (mandatory)
 - **One feature = one branch.** Create a new branch (e.g. `feat/feature-name`) for every task.
-- **Never push directly to `main`.** Always open a PR and wait for the owner to merge.
+- **Never push directly to `main`.** Always open a PR and wait for the owner to merge. **No exceptions** — not even for "quick fixes", deploy hotfixes, or config changes. Create a branch, push, PR, merge. If urgency tempts you to skip this, that's the exact moment you must not.
 - **Never modify existing tests** unless explicitly asked. Write new test files for new functionality.
 - **Always run tests** before committing to verify nothing is broken.
 - **Rebuild the SDK** (`npm run build:sdk`) after any change to `packages/sdk/src/` — the browser loads the bundled `cobrowse.js`, not source files.
+- **Rebuild the Agent SDK** (`npm run build:agent-sdk`) after any change to `packages/agent-sdk/src/`.
 - **Dotenv loads from `packages/server/.env`**, not the repo root `.env`. Set server env vars there.
 - **Demo keys** (`DEMO_SECRET_KEY`, `DEMO_PUBLIC_KEY`) must be set in `packages/server/.env` for the demo apps to authenticate. Run `npm run db:seed` to generate them.
 
-## 15) Maintenance rule
+## 15) Railway / Nixpacks deployment gotchas
+- **Nixpacks prunes non-server workspaces.** Only `packages/server/` survives into the runtime container. Demo apps, SDKs, and other workspace packages are removed. Any files the server needs at runtime must live under `packages/server/`.
+- **Demo app files** live in `packages/server/public/demo/{customer,agent}/`. If you update `packages/customer-app/` or `packages/agent-app/`, sync changes to the `public/demo/` copies too.
+- **Shell `&&` chains break on Railway.** Railway kills the container when intermediate `node` processes exit. Use `packages/server/src/startup.js` (single long-running process) instead of chaining `node migrate.js && node seed.js && node server.js`.
+- **Pin Node.js version.** `.node-version` is set to `22`. Dependency `jose` v6 requires Node >= 20. Do not downgrade.
+- **rrweb Replayer** — use `mouseTail: false` in production/deployed viewers. With network latency, mouse trail events accumulate and cover the entire view.
+- **Dev-only endpoints** (e.g. `/api/v1/admin/demo-jwt`) must also be gated on `DEMO_SECRET_KEY` presence, not just `isDev`, so they work on Railway demo deployments.
+- **Deploy with `railway up --detach`** (uploads local files). `railway redeploy` only restarts the last successful image — it won't pick up new code.
+
+## 16) Maintenance rule
 If you notice a recurring mistake (style, security, workflow), propose a concrete update to this CLAUDE.md or the relevant @docs/* file so it does not repeat. :contentReference[oaicite:3]{index=3}
