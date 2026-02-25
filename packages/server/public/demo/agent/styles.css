@@ -1,0 +1,219 @@
+/* Agent App — CRM Demo Styles */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #0f1117;
+  --surface:     #1a1d27;
+  --surface2:    #22263a;
+  --border:      #2d3148;
+  --accent:      #4f6ef7;
+  --accent-h:    #6b84ff;
+  --text:        #e8eaf2;
+  --text-muted:  #7c82a0;
+  --green:       #22c55e;
+  --yellow:      #f59e0b;
+  --red:         #ef4444;
+  --radius:      12px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 56px 1fr;
+}
+
+/* ── Top bar ───────────────────────────────────────────────────────────────── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+}
+.topbar-logo { font-weight: 700; font-size: 16px; color: var(--accent); letter-spacing: -0.3px; }
+.topbar-badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.agent-name { font-size: 13px; color: var(--text-muted); }
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  overflow: hidden;
+}
+
+/* ── Sidebar (Care Consult) ────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-section:last-child { border-bottom: none; }
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+/* Form */
+.form-group { margin-bottom: 14px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; display: block; }
+.form-check-label { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.form-check-label input[type="checkbox"] { accent-color: var(--accent); }
+.form-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-input::placeholder { color: var(--text-muted); }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s, transform 0.1s;
+  width: 100%;
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+
+.btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.btn-danger:hover:not(:disabled) { background: rgba(239,68,68,0.25); }
+
+/* Session status */
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.status-idle    { background: rgba(124,130,160,0.15); color: var(--text-muted); }
+.status-pending { background: rgba(245,158,11,0.15);  color: var(--yellow); }
+.status-active  { background: rgba(34,197,94,0.15);   color: var(--green); }
+.status-ended   { background: rgba(239,68,68,0.1);    color: var(--red); }
+
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+}
+.status-active .status-dot { animation: blink 1.5s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* Invite link */
+.invite-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--accent);
+  margin-bottom: 14px;
+  display: none;
+}
+.invite-box.visible { display: block; }
+
+/* Session info rows */
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+}
+.info-row strong { color: var(--text); font-weight: 500; }
+
+/* Timer */
+.session-timer {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  margin: 8px 0 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Log */
+.event-log {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 10px;
+}
+.log-entry {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+}
+.log-entry:last-child { border-bottom: none; }
+.log-time { color: var(--accent); flex-shrink: 0; }
+.log-msg  { color: var(--text-muted); }
+
+/* ── Info pane (replaces viewer — viewer is now in separate window) ──────── */
+.info-pane {
+  position: relative;
+  background: #0a0c14;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.info-placeholder {
+  text-align: center;
+  color: var(--text-muted);
+}
+.info-placeholder .icon { font-size: 56px; margin-bottom: 16px; }
+.info-placeholder h2 { font-size: 18px; color: var(--text); margin-bottom: 6px; }
+.info-placeholder p  { font-size: 13px; line-height: 1.6; max-width: 360px; }

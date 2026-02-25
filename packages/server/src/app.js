@@ -139,20 +139,22 @@ async function buildApp() {
     prefix: '/static/',
   });
 
-  // ─── Demo apps — served directly from source for easy hosting ────────────────
-  // When deployed (e.g. Railway), both demo apps live at:
+  // ─── Demo apps — served from public/demo/ ────────────────────────────────────
+  // Both demo apps live at:
   //   /demo/customer/  →  the customer claim-form page
   //   /demo/agent/     →  the agent co-browse console
-  // Static assets (styles.css, app.js) are served by these mounts.
-  // The index.html files reference /static/... which resolves to the SDK/vendor files.
+  //
+  // Demo files (index.html, styles.css, app.js) are in packages/server/public/demo/.
+  // This ensures they work both locally and on Railway (where Nixpacks only
+  // includes the server workspace, pruning sibling packages).
   await app.register(fastifyStatic, {
-    root:           path.join(__dirname, '../../customer-app'),
+    root:           path.join(__dirname, '../public/demo/customer'),
     prefix:         '/demo/customer/',
     decorateReply:  false,
   });
 
   await app.register(fastifyStatic, {
-    root:           path.join(__dirname, '../../agent-app'),
+    root:           path.join(__dirname, '../public/demo/agent'),
     prefix:         '/demo/agent/',
     decorateReply:  false,
   });

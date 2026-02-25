@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShieldLife Insurance — File a Claim</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ── Nav ──────────────────────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-logo">🛡️ ShieldLife Insurance</div>
+  <div class="nav-links">
+    <a href="#">My Policy</a>
+    <a href="#">Claims</a>
+    <a href="#">Support</a>
+  </div>
+  <div class="nav-user">Welcome, Alex Johnson</div>
+</nav>
+
+<!-- ── Progress ─────────────────────────────────────────────────────────── -->
+<div class="progress-bar">
+  <div class="step done">
+    <div class="step-num">✓</div>
+    <div class="step-label">Policy Lookup</div>
+  </div>
+  <div class="step-connector"></div>
+  <div class="step active">
+    <div class="step-num">2</div>
+    <div class="step-label">Claim Details</div>
+  </div>
+  <div class="step-connector"></div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-label">Documents</div>
+  </div>
+  <div class="step-connector"></div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-label">Review</div>
+  </div>
+  <div class="step-connector"></div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-label">Submit</div>
+  </div>
+</div>
+
+<!-- ── Main content ─────────────────────────────────────────────────────── -->
+<main class="page-content">
+
+  <div class="page-header">
+    <h1>File an Insurance Claim</h1>
+    <p>Policy #SL-2024-889921 — Comprehensive Home Insurance</p>
+  </div>
+
+  <div class="info-box">
+    ℹ️
+    <div>
+      <strong>Need help?</strong> If you're on a call with our support team, they can guide you
+      through this form using screen sharing. You'll see a request appear on this page.
+    </div>
+  </div>
+
+  <!-- ── Section 1: Incident details ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">🏠 Incident Details</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Claim Type <span class="required">*</span></label>
+        <select class="form-select" id="claim-type">
+          <option value="">— Select claim type —</option>
+          <option value="water">Water Damage</option>
+          <option value="fire">Fire Damage</option>
+          <option value="theft">Theft / Burglary</option>
+          <option value="storm">Storm Damage</option>
+          <option value="accident">Accidental Damage</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date of Incident <span class="required">*</span></label>
+        <input class="form-input" type="date" id="incident-date" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Incident Location <span class="required">*</span></label>
+        <input class="form-input" type="text" id="incident-location"
+          placeholder="e.g. Living room, 123 Main St" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Estimated Loss Value</label>
+        <input class="form-input" type="text" id="loss-value"
+          placeholder="e.g. $5,000" />
+      </div>
+    </div>
+
+    <div class="form-row single">
+      <div class="form-group">
+        <label class="form-label">Description of Incident <span class="required">*</span></label>
+        <textarea id="incident-desc"
+          placeholder="Please describe what happened in as much detail as possible…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 2: Your information ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">👤 Policyholder Information</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Full Name <span class="required">*</span></label>
+        <input class="form-input" type="text" id="full-name" value="Alex Johnson" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date of Birth <span class="required">*</span></label>
+        <input class="form-input" type="date" id="dob" value="1985-03-15" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Email Address <span class="required">*</span></label>
+        <input class="form-input" type="email" id="email" value="alex.johnson@email.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone Number</label>
+        <!-- type="tel" — will be masked by SDK (default masking rule) -->
+        <input class="form-input sensitive" type="tel" id="phone"
+          placeholder="+1 (555) 000-0000" />
+        <span class="sensitive-badge">🔒 Hidden from agent</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Payment details ──────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">💳 Bank Details (for claim payout)</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Account Holder Name <span class="required">*</span></label>
+        <input class="form-input" type="text" id="account-name" value="Alex Johnson" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bank Name</label>
+        <input class="form-input" type="text" id="bank-name" placeholder="e.g. First National Bank" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Account Number <span class="required">*</span></label>
+        <!-- Masked via custom selector in masking rules -->
+        <input class="form-input sensitive" type="text" id="account-number"
+          name="card" placeholder="•••••••••••" autocomplete="off" />
+        <span class="sensitive-badge">🔒 Hidden from agent</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Routing Number <span class="required">*</span></label>
+        <input class="form-input sensitive" type="text" id="routing-number"
+          name="cvv" placeholder="•••••••••" autocomplete="off" />
+        <span class="sensitive-badge">🔒 Hidden from agent</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 4: Supporting documents ─────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">📎 Supporting Documents</div>
+
+    <div class="file-upload" id="file-upload-area">
+      <div class="icon">📁</div>
+      <p><strong>Click to upload</strong> or drag and drop files here</p>
+      <p style="margin-top:4px;font-size:12px;">Photos, receipts, police reports (PDF, JPG, PNG — max 10MB each)</p>
+      <input type="file" id="file-input" multiple accept=".pdf,.jpg,.jpeg,.png" />
+    </div>
+    <div id="file-list" style="margin-top:10px;font-size:13px;color:#718096;"></div>
+  </div>
+
+  <!-- ── OTP verification section ─────────────────────────────────────────── -->
+  <div class="card" id="otp-section" style="display:none;">
+    <div class="card-title">🔐 Identity Verification</div>
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">
+      We've sent a one-time code to your registered mobile number ending in ••••89.
+    </p>
+    <div style="max-width:200px;">
+      <label class="form-label">Enter OTP <span class="required">*</span></label>
+      <!-- OTP field — masked via custom selector name="otp" in masking rules -->
+      <input class="form-input sensitive" type="text" id="otp" name="otp"
+        maxlength="6" placeholder="••••••" autocomplete="one-time-code"
+        style="letter-spacing:8px;font-size:20px;text-align:center;" />
+      <span class="sensitive-badge">🔒 Hidden from agent</span>
+    </div>
+  </div>
+
+  <!-- ── Form actions ──────────────────────────────────────────────────────── -->
+  <div class="btn-group">
+    <button class="btn btn-secondary" id="btn-prev-step">← Previous Step</button>
+    <div style="display:flex;gap:12px;">
+      <button class="btn btn-secondary" id="btn-request-otp">Request OTP</button>
+      <button class="btn btn-primary" id="btn-submit-claim">Continue to Documents →</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- SDK status indicator (dev helper — not part of co-browse UI) -->
+<div id="sdk-status-bar" class="hidden">
+  <div class="sdk-dot" id="sdk-dot"></div>
+  <span id="sdk-status-text">CoBrowse: initialising…</span>
+</div>
+
+<!-- Demo config — sets window.COBROWSE_DEMO_CONFIG with server-injected keys.
+     Served by the Fastify server; a no-op when opening this file directly. -->
+<script src="/demo/config.js"></script>
+<!-- rrweb + Ably + CoBrowse SDK — served from the session server (/static/) -->
+<script src="/static/vendor/rrweb.js"></script>
+<script src="/static/vendor/ably.min.js"></script>
+<script src="/static/sdk/cobrowse.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
