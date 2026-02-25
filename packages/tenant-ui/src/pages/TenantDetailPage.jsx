@@ -203,6 +203,9 @@ function TenantDetailPage() {
               <Link to={`/portal/tenants/${id}/analytics`} className="btn btn-secondary btn-sm">
                 Analytics
               </Link>
+              <Link to={`/portal/tenants/${id}/recordings`} className="btn btn-secondary btn-sm">
+                Recordings
+              </Link>
               <Link to={`/portal/tenants/${id}/masking`} className="btn btn-secondary btn-sm">
                 Masking Rules
               </Link>

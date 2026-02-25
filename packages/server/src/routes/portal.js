@@ -245,6 +245,56 @@ async function portalTenantRoutes(fastify) {
     );
   });
 
+  // GET /api/v1/portal/tenants/:id/recordings
+  fastify.get('/tenants/:id/recordings', {
+    preHandler: authenticatePortal,
+    schema: {
+      params: {
+        type: 'object',
+        properties: { id: { type: 'string', format: 'uuid' } },
+      },
+      querystring: {
+        type: 'object',
+        properties: {
+          page:   { type: 'string' },
+          limit:  { type: 'string' },
+          status: { type: 'string', enum: ['recording', 'complete', 'failed'] },
+        },
+      },
+    },
+  }, async (request) => {
+    const { page, limit, status } = request.query;
+    return vendor.listRecordings(
+      request.portalUser.vendorId,
+      request.params.id,
+      {
+        page: page ? parseInt(page, 10) : 1,
+        limit: limit ? Math.min(parseInt(limit, 10), 100) : 20,
+        status,
+      }
+    );
+  });
+
+  // GET /api/v1/portal/tenants/:id/recordings/:sessionId
+  fastify.get('/tenants/:id/recordings/:sessionId', {
+    preHandler: authenticatePortal,
+    schema: {
+      params: {
+        type: 'object',
+        properties: {
+          id:        { type: 'string', format: 'uuid' },
+          sessionId: { type: 'string', format: 'uuid' },
+        },
+      },
+    },
+  }, async (request) => {
+    return vendor.getRecording(
+      request.portalUser.vendorId,
+      request.params.id,
+      request.params.sessionId
+    );
+  });
+
   // GET /api/v1/portal/tenants/:id/analytics
   fastify.get('/tenants/:id/analytics', {
     preHandler: authenticatePortal,
