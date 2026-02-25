@@ -27,11 +27,6 @@ monitoring/
 *.md
 !packages/server/public/**
 
-# Demo apps (not needed in production image)
-packages/agent-app/
-packages/customer-app/
-
 # Docker
 Dockerfile
 docker-compose.yml
-railway.toml
