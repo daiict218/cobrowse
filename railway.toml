@@ -7,8 +7,8 @@ buildCommand = "npm ci && npm run build:sdk && npm run build:agent-sdk"
 # Migrate + seed on every start (both are idempotent), then start the server.
 # On first deploy the seed prints fresh keys in the deploy logs — copy them and set
 # DEMO_SECRET_KEY + DEMO_PUBLIC_KEY as Railway env vars, then trigger a redeploy.
-startCommand = "node packages/server/src/db/migrate.js && node packages/server/src/db/seed.js && node packages/server/src/server.js"
+startCommand = "node -v && node packages/server/src/db/migrate.js && node packages/server/src/db/seed.js && node packages/server/src/server.js"
 healthcheckPath = "/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3

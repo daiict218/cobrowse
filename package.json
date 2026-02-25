@@ -17,6 +17,6 @@
     "test:coverage": "npm run test:coverage --workspace=packages/server && npm run test:coverage --workspace=packages/sdk"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }
