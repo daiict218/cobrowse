@@ -15,7 +15,7 @@
 const _demo = window.COBROWSE_DEMO_CONFIG || {};
 const CONFIG = {
   serverUrl: _demo.serverUrl || 'http://localhost:4000',
-  secretKey: _demo.secretKey || 'cb_sk_b03c32546465cbb2f1d3ada34495ec5805dc803f56bc6a6b',
+  secretKey: _demo.secretKey || '',
 };
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -54,8 +54,8 @@ async function startSession() {
         jwt: jwtRes.jwt,
       });
     } else {
-      if (!CONFIG.secretKey || CONFIG.secretKey === 'PASTE_YOUR_SECRET_KEY_HERE') {
-        alert('Please set your SECRET KEY in app.js (CONFIG.secretKey)');
+      if (!CONFIG.secretKey) {
+        alert('Secret key not configured. Set DEMO_SECRET_KEY in your server .env file, or use JWT Demo Mode.');
         return;
       }
 
