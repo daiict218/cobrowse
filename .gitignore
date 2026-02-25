@@ -30,5 +30,6 @@ coverage/
 # packages/server/public/sdk/cobrowse.min.js
 packages/server/public/sdk/*.map
 
-# Tenant UI build output (rebuilt on deploy)
-packages/server/public/tenant-ui/
+# Tenant UI build output — committed so Railway deploy always has static files.
+# Rebuild locally: npm run build:tenant-ui
+# packages/server/public/tenant-ui/
