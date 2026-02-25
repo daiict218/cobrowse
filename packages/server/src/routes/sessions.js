@@ -27,14 +27,16 @@ async function sessionsRoutes(fastify) {
       },
     },
   }, async (request, reply) => {
-    // agentId: from body (API key path) or from JWT sub claim
-    const agentId = request.body.agentId || request.agent?.id;
+    // agentId: JWT sub claim takes priority (prevents impersonation),
+    // falls back to body.agentId for API key auth path.
+    const agentId = request.agent?.id || request.body.agentId;
     if (!agentId) throw new ValidationError('agentId is required');
     const { customerId, channelRef } = request.body;
     const { id: tenantId } = request.tenant;
 
-    // Build the base URL so the session service can construct the invite link
-    const serverBaseUrl = `${request.protocol}://${request.hostname}`;
+    // Build the base URL so the session service can construct the invite link.
+    // Use headers.host (includes port) instead of hostname (strips port).
+    const serverBaseUrl = `${request.protocol}://${request.headers.host}`;
 
     const { session, inviteUrl } = await sessionService.createSession({
       tenantId,

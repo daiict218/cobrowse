@@ -177,14 +177,18 @@
       updateStatus('Session: ' + session.status);
 
       if (session.status === 'active') {
+        // Session already active — go straight to snapshot polling.
+        // Do NOT also start session polling (it would call startSnapshotPoll
+        // a second time, creating a duplicate replayer).
         startSnapshotPoll();
+      } else {
+        // Session is pending — poll for status changes until active
+        startSessionPoll();
       }
 
-      // Poll for session status changes
-      startSessionPoll();
-
       // Connect to Ably for real-time events
-      connectToAbly().catch(() => {
+      connectToAbly().catch((err) => {
+        console.error('[viewer] Ably connection failed:', err);
         updateStatus('Using HTTP polling (WebSocket unavailable)');
       });
 
@@ -228,6 +232,7 @@
     domCh.subscribe('events', (msg) => {
       if (!replayer) return;
       const events = Array.isArray(msg.data) ? msg.data : [msg.data];
+      console.log('[viewer] Ably: received', events.length, 'events');
       for (const event of events) {
         replayer.addEvent(event);
         if (event.type === 4 && event.data?.href) {
@@ -254,7 +259,7 @@
           showError('Session Ended', 'Reason: ' + (s.endReason || 'unknown'));
           teardown();
         }
-      } catch {}
+      } catch (err) { console.error('[viewer] session poll error:', err); }
     }, 2000);
   }
 
@@ -270,7 +275,7 @@
           clearInterval(snapshotPollInterval);
           initReplayer(res.snapshot);
         }
-      } catch {}
+      } catch (err) { console.error('[viewer] snapshot poll error:', err); }
     }, 1000);
   }
 
@@ -285,11 +290,18 @@
       } else {
         initReplayer(res.snapshot);
       }
-    } catch {}
+    } catch (err) { console.error('[viewer] refresh replayer error:', err); }
   }
 
   // ─── rrweb Replayer ─────────────────────────────────────────────────────────
   function initReplayer(snapshotData) {
+    // Guard: destroy existing replayer to prevent duplicate iframes in the container
+    if (replayer) {
+      clearInterval(domEventPollInterval);
+      try { replayer.destroy(); } catch {}
+      replayer = null;
+    }
+
     const container = document.getElementById('viewer-frame');
     container.style.display = 'block';
     document.getElementById('loading-view').style.display = 'none';
@@ -303,6 +315,8 @@
       UNSAFE_replayCanvas: false,
     });
 
+    // Date.now() is correct for live mode: events with timestamps in the past
+    // are applied immediately (sync), new events are scheduled with small delays.
     replayer.startLive(Date.now());
 
     // Pointer tracking
@@ -315,6 +329,8 @@
     });
 
     updateStatus('Live view active');
+    // HTTP DOM event polling works alongside Ably — rrweb deduplicates by timestamp.
+    // If Ably is blocked (e.g. Brave shields), polling still delivers events.
     startDomEventPoll();
   }
 
@@ -326,6 +342,7 @@
       try {
         const res = await apiCall('GET', '/api/v1/dom-events/' + SESSION_ID + '?since=' + domEventSeq);
         if (res.events && res.events.length > 0) {
+          console.log('[viewer] HTTP poll: received', res.events.length, 'events, seq', domEventSeq, '->', res.nextSeq);
           for (const event of res.events) {
             replayer.addEvent(event);
             if (event.type === 4 && event.data?.href) {
@@ -334,7 +351,7 @@
           }
           domEventSeq = res.nextSeq;
         }
-      } catch {}
+      } catch (err) { console.error('[viewer] dom-event poll error:', err); }
     }, 50);
   }
 
@@ -403,6 +420,11 @@
   }
 
   window.addEventListener('message', (e) => {
+    // Only accept commands from the window that opened us (Agent SDK)
+    // or the parent frame (if embedded as iframe). Prevents cross-origin
+    // attackers from triggering session actions via postMessage.
+    if (e.source !== window.opener && e.source !== window.parent) return;
+
     if (e.data?.action === 'endSession') endSession();
     if (e.data?.action === 'togglePointer') togglePointer();
   });

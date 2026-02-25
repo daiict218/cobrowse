@@ -82,7 +82,9 @@ async function embedRoutes(fastify) {
       reply.header('content-security-policy', updated);
     }
 
-    const serverUrl = `${request.protocol}://${request.hostname}`;
+    // Use request.headers.host (includes port) instead of request.hostname (strips port).
+    // The embed viewer makes fetch() calls to this URL — port is required.
+    const serverUrl = `${request.protocol}://${request.headers.host}`;
     const nonce = reply.cspNonce?.script ?? '';
     const jwtToken = request.query.token || '';
 

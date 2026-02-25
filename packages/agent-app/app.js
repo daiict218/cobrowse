@@ -120,6 +120,8 @@ function startSessionPoll() {
         clearInterval(sessionPollInterval);
         logEvent('customer.joined', 'Customer connected');
         updateStatus('active', 'Session Active');
+        // Auto-open the viewer window as soon as co-browse begins
+        openViewer();
       } else if (res.status === 'ended') {
         clearInterval(sessionPollInterval);
         logEvent('session.ended', `Session ended. Reason: ${res.endReason || 'unknown'}`);

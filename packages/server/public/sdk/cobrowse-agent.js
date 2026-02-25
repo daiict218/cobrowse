@@ -118,6 +118,15 @@ var CoBrowseAgent = (() => {
       const data = event.data;
       if (!data || typeof data !== "object")
         return;
+      let fromViewer = false;
+      for (const win of this._viewerWindows.values()) {
+        if (event.source === win) {
+          fromViewer = true;
+          break;
+        }
+      }
+      if (!fromViewer)
+        return;
       if (data.type === "session.stateChange") {
         this._emit("session.stateChange", data);
       } else if (data.type === "session.urlChanged") {

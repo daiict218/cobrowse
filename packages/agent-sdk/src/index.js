@@ -124,6 +124,14 @@ class AgentSDK {
     const data = event.data;
     if (!data || typeof data !== 'object') return;
 
+    // Only accept messages from known viewer windows to prevent
+    // cross-origin attackers from spoofing session state events.
+    let fromViewer = false;
+    for (const win of this._viewerWindows.values()) {
+      if (event.source === win) { fromViewer = true; break; }
+    }
+    if (!fromViewer) return;
+
     if (data.type === 'session.stateChange') {
       this._emit('session.stateChange', data);
     } else if (data.type === 'session.urlChanged') {
