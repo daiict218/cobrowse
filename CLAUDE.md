@@ -165,6 +165,7 @@ When proposing a plan, format it as:
 - **Always run tests** before committing to verify nothing is broken.
 - **Rebuild the SDK** (`npm run build:sdk`) after any change to `packages/sdk/src/` — the browser loads the bundled `cobrowse.js`, not source files.
 - **Rebuild the Agent SDK** (`npm run build:agent-sdk`) after any change to `packages/agent-sdk/src/`.
+- **Tenant UI build output is gitignored.** Do not commit `packages/server/public/tenant-ui/`. It is rebuilt automatically on Railway deploy (via `railway.toml` buildCommand) and in Docker builds (via Dockerfile). For local dev, use `npm run dev:tenant-ui` (Vite dev server on port 5173). For a local production preview, run `npm run build:tenant-ui`.
 - **Dotenv loads from `packages/server/.env`**, not the repo root `.env`. Set server env vars there.
 - **Demo keys** (`DEMO_SECRET_KEY`, `DEMO_PUBLIC_KEY`) must be set in `packages/server/.env` for the demo apps to authenticate. Run `npm run db:seed` to generate them.
 
@@ -184,7 +185,6 @@ When proposing a plan, format it as:
 - **Global utility classes** (`.btn`, `.card`, `.form-group`, `.form-input`, `.page-header`, `.badge`, etc.) are defined in `packages/tenant-ui/src/styles/global.scss` and used as plain `className` strings. Do not duplicate these in SCSS modules.
 - **CSS custom properties** are defined in `packages/tenant-ui/src/styles/variables.scss` — reference them as `var(--color-primary)`, `var(--space-md)`, etc. Do not hardcode color or spacing values.
 - **Dynamic values** (e.g. a `size` prop) are the only acceptable use of inline `style` — and only for the specific dynamic property, not for layout or theming.
-- **Rebuild the tenant UI** (`npm run build:tenant-ui`) after any changes to `packages/tenant-ui/src/`.
 
 ## 17) Frontend auth and security conventions (mandatory)
 - **Cookies only for auth.** Session tokens are stored in httpOnly, SameSite=Strict, Secure (prod) cookies set by the server. **NEVER** use localStorage, sessionStorage, or JS-accessible cookies for auth tokens — they are vulnerable to XSS.

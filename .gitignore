@@ -30,6 +30,7 @@ coverage/
 # packages/server/public/sdk/cobrowse.min.js
 packages/server/public/sdk/*.map
 
-# Tenant UI build output — committed so Railway deploy always has static files.
-# Rebuild locally: npm run build:tenant-ui
-# packages/server/public/tenant-ui/
+# Tenant UI build output — rebuilt on Railway deploy via railway.toml buildCommand.
+# For local dev: use `npm run dev:tenant-ui` (Vite dev server on port 5173).
+# For production preview locally: run `npm run build:tenant-ui` first.
+packages/server/public/tenant-ui/
