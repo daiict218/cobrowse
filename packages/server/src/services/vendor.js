@@ -2,6 +2,17 @@ import * as db from '../db/index.js';
 import { generateSecretKey, generatePublicKey, hashApiKey } from '../utils/token.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
 
+// ─── Key event audit logging ─────────────────────────────────────────────────
+
+async function logKeyEvent(client, tenantId, eventType, actor = {}) {
+  const userAgent = actor.userAgent ? actor.userAgent.slice(0, 512) : null;
+  await client.query(
+    `INSERT INTO key_events (tenant_id, user_id, event_type, ip_address, user_agent)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [tenantId, actor.userId || null, eventType, actor.ip || null, userAgent]
+  );
+}
+
 // ─── Tenant CRUD (vendor-scoped) ──────────────────────────────────────────────
 
 /**
@@ -39,7 +50,7 @@ async function getTenant(vendorId, tenantId) {
  * Create a new tenant for a vendor.
  * Returns the tenant + plaintext API keys (shown ONCE).
  */
-async function createTenant(vendorId, { name, allowedDomains }) {
+async function createTenant(vendorId, { name, allowedDomains }, actor = {}) {
   if (!name || !name.trim()) {
     throw new ValidationError('Tenant name is required');
   }
@@ -49,15 +60,20 @@ async function createTenant(vendorId, { name, allowedDomains }) {
   const secretHash = hashApiKey(secretKey);
   const publicHash = hashApiKey(publicKey);
 
-  const result = await db.query(
-    `INSERT INTO tenants (name, secret_key_hash, public_key_hash, allowed_domains, vendor_id)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, name, allowed_domains, is_active, feature_flags, created_at`,
-    [name.trim(), secretHash, publicHash, allowedDomains || [], vendorId]
-  );
+  const { tenant } = await db.transaction(async (client) => {
+    const result = await client.query(
+      `INSERT INTO tenants (name, secret_key_hash, public_key_hash, allowed_domains, vendor_id)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, allowed_domains, is_active, feature_flags, created_at`,
+      [name.trim(), secretHash, publicHash, allowedDomains || [], vendorId]
+    );
+    const t = result.rows[0];
+    await logKeyEvent(client, t.id, 'keys.created', actor);
+    return { tenant: t };
+  });
 
   return {
-    tenant: result.rows[0],
+    tenant,
     keys: { secretKey, publicKey },
   };
 }
@@ -110,18 +126,21 @@ async function updateTenant(vendorId, tenantId, updates) {
 /**
  * Rotate API keys for a tenant. Returns new plaintext keys (shown ONCE).
  */
-async function rotateKeys(vendorId, tenantId) {
+async function rotateKeys(vendorId, tenantId, actor = {}) {
   // Verify ownership
   await getTenant(vendorId, tenantId);
 
   const secretKey = generateSecretKey();
   const publicKey = generatePublicKey();
 
-  await db.query(
-    `UPDATE tenants SET secret_key_hash = $1, public_key_hash = $2, updated_at = NOW()
-     WHERE id = $3 AND vendor_id = $4`,
-    [hashApiKey(secretKey), hashApiKey(publicKey), tenantId, vendorId]
-  );
+  await db.transaction(async (client) => {
+    await client.query(
+      `UPDATE tenants SET secret_key_hash = $1, public_key_hash = $2, updated_at = NOW()
+       WHERE id = $3 AND vendor_id = $4`,
+      [hashApiKey(secretKey), hashApiKey(publicKey), tenantId, vendorId]
+    );
+    await logKeyEvent(client, tenantId, 'keys.rotated', actor);
+  });
 
   return { secretKey, publicKey };
 }
@@ -304,6 +323,27 @@ async function getVendorOverview(vendorId) {
   };
 }
 
+// ─── Key event audit trail ───────────────────────────────────────────────────
+
+async function getKeyEvents(vendorId, tenantId) {
+  // Verify ownership
+  await getTenant(vendorId, tenantId);
+
+  const result = await db.query(
+    `SELECT ke.id, ke.event_type, ke.ip_address, ke.metadata, ke.created_at,
+            vu.name AS user_name, vu.email AS user_email
+     FROM key_events ke
+     JOIN tenants t ON t.id = ke.tenant_id AND t.vendor_id = $2
+     LEFT JOIN vendor_users vu ON vu.id = ke.user_id
+     WHERE ke.tenant_id = $1
+     ORDER BY ke.created_at DESC
+     LIMIT 50`,
+    [tenantId, vendorId]
+  );
+
+  return result.rows;
+}
+
 export {
   listTenants,
   getTenant,
@@ -315,4 +355,5 @@ export {
   listSessions,
   getTenantAnalytics,
   getVendorOverview,
+  getKeyEvents,
 };

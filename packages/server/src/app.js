@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
@@ -377,9 +379,46 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
     return reply.redirect('/portal/');
   });
 
-  // SPA fallback — all /portal/* paths serve index.html for client-side routing
+  // SPA fallback — serve static assets from subdirectories (e.g. /portal/assets/*)
+  // or fall back to index.html for client-side routes.
+  // Note: reply.sendFile() uses the first @fastify/static root regardless of the
+  // root arg, so we read files directly with correct MIME types.
+  const tenantUiRoot = path.join(__dirname, '../public/tenant-ui');
+  const MIME_TYPES = {
+    '.js': 'application/javascript', '.mjs': 'application/javascript',
+    '.css': 'text/css', '.html': 'text/html',
+    '.json': 'application/json', '.map': 'application/json',
+    '.svg': 'image/svg+xml', '.png': 'image/png',
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.ico': 'image/x-icon', '.webp': 'image/webp',
+    '.woff': 'font/woff', '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf', '.eot': 'application/vnd.ms-fontobject',
+  };
+
+  async function serveFile(reply, filePath, mimeType) {
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(tenantUiRoot)) {
+      reply.code(403);
+      return { error: 'Forbidden' };
+    }
+    try {
+      await fs.access(resolved);
+    } catch {
+      reply.code(404);
+      return { error: 'Not found' };
+    }
+    reply.type(mimeType);
+    return createReadStream(resolved);
+  }
+
   app.get('/portal/*', async (request, reply) => {
-    return reply.sendFile('index.html', path.join(__dirname, '../public/tenant-ui'));
+    const urlPath = request.params['*'];
+    const ext = path.extname(urlPath);
+    if (ext && MIME_TYPES[ext]) {
+      return serveFile(reply, path.join(tenantUiRoot, urlPath), MIME_TYPES[ext]);
+    }
+    // Client-side route — serve the SPA shell
+    return serveFile(reply, path.join(tenantUiRoot, 'index.html'), 'text/html');
   });
 
   return app;
