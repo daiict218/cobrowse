@@ -367,6 +367,11 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
     wildcard:      false,
   });
 
+  // Root → redirect to portal (SPA handles auth check)
+  app.get('/', async (request, reply) => {
+    return reply.redirect('/portal/');
+  });
+
   // /portal (no trailing slash) → redirect to /portal/
   app.get('/portal', async (request, reply) => {
     return reply.redirect('/portal/');
