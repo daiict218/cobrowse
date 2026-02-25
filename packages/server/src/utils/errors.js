@@ -46,6 +46,13 @@ class ConflictError extends AppError {
   }
 }
 
+class TooManyRequestsError extends AppError {
+  constructor(message = 'Too many failed authentication attempts. Try again later.') {
+    super(message, 429, 'TOO_MANY_REQUESTS');
+    this.name = 'TooManyRequestsError';
+  }
+}
+
 export {
   AppError,
   NotFoundError,
@@ -53,4 +60,5 @@ export {
   ForbiddenError,
   ValidationError,
   ConflictError,
+  TooManyRequestsError,
 };

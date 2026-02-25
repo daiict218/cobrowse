@@ -2,6 +2,7 @@ import * as db from '../db/index.js';
 import { generateSecretKey, generatePublicKey, hashApiKey } from '../utils/token.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
 import * as recording from './recording.js';
+import * as authAudit from './auth-audit.js';
 
 // ─── Key event audit logging ─────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ async function listTenants(vendorId) {
 async function getTenant(vendorId, tenantId) {
   const result = await db.query(
     `SELECT id, name, allowed_domains, masking_rules, feature_flags, jwt_config,
-            is_active, created_at, updated_at
+            is_active, key_expires_at, created_at, updated_at
      FROM tenants
      WHERE id = $1 AND vendor_id = $2`,
     [tenantId, vendorId]
@@ -127,23 +128,29 @@ async function updateTenant(vendorId, tenantId, updates) {
 /**
  * Rotate API keys for a tenant. Returns new plaintext keys (shown ONCE).
  */
-async function rotateKeys(vendorId, tenantId, actor = {}) {
+async function rotateKeys(vendorId, tenantId, actor = {}, { expiresInDays } = {}) {
   // Verify ownership
   await getTenant(vendorId, tenantId);
 
   const secretKey = generateSecretKey();
   const publicKey = generatePublicKey();
 
+  // Compute expiry: NULL means no expiry (opt-in)
+  const keyExpiresAt = expiresInDays
+    ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+    : null;
+
   await db.transaction(async (client) => {
     await client.query(
-      `UPDATE tenants SET secret_key_hash = $1, public_key_hash = $2, updated_at = NOW()
-       WHERE id = $3 AND vendor_id = $4`,
-      [hashApiKey(secretKey), hashApiKey(publicKey), tenantId, vendorId]
+      `UPDATE tenants
+       SET secret_key_hash = $1, public_key_hash = $2, key_expires_at = $3, updated_at = NOW()
+       WHERE id = $4 AND vendor_id = $5`,
+      [hashApiKey(secretKey), hashApiKey(publicKey), keyExpiresAt, tenantId, vendorId]
     );
     await logKeyEvent(client, tenantId, 'keys.rotated', actor);
   });
 
-  return { secretKey, publicKey };
+  return { secretKey, publicKey, keyExpiresAt };
 }
 
 // ─── Masking Rules ────────────────────────────────────────────────────────────
@@ -345,6 +352,15 @@ async function getKeyEvents(vendorId, tenantId) {
   return result.rows;
 }
 
+// ─── Auth failure audit (vendor-scoped) ──────────────────────────────────────
+
+async function getAuthFailures(vendorId, tenantId, { limit = 50 } = {}) {
+  // Verify ownership
+  await getTenant(vendorId, tenantId);
+
+  return authAudit.getRecentFailures(tenantId, limit);
+}
+
 // ─── Recordings (vendor-scoped) ──────────────────────────────────────────────
 
 /**
@@ -424,4 +440,5 @@ export {
   getTenantAnalytics,
   getVendorOverview,
   getKeyEvents,
+  getAuthFailures,
 };

@@ -2,6 +2,8 @@ import * as db from '../db/index.js';
 import { hashApiKey } from '../utils/token.js';
 import { UnauthorizedError } from '../utils/errors.js';
 import { authenticateJwt } from './jwt-auth.js';
+import * as authRateLimiter from '../utils/auth-rate-limiter.js';
+import * as authAudit from '../services/auth-audit.js';
 
 /**
  * Authentication middleware for Fastify.
@@ -18,8 +20,14 @@ import { authenticateJwt } from './jwt-auth.js';
  *   fastify.addHook('preHandler', authenticateSecret)  // requires secret key only
  */
 
-async function _resolveTenant(apiKey) {
+async function _resolveTenant(apiKey, request) {
   if (!apiKey) throw new UnauthorizedError('API key required');
+
+  const ip = request?.ip;
+  const userAgent = request?.headers?.['user-agent'];
+
+  // Rate limit check — throws 429 if this IP has too many recent failures
+  authRateLimiter.check(ip);
 
   const hash = hashApiKey(apiKey);
   const isSecret = apiKey.startsWith('cb_sk_');
@@ -27,15 +35,55 @@ async function _resolveTenant(apiKey) {
   const column = isSecret ? 'secret_key_hash' : 'public_key_hash';
 
   const result = await db.query(
-    `SELECT id, name, allowed_domains, masking_rules, feature_flags, is_active
+    `SELECT id, name, allowed_domains, masking_rules, feature_flags, is_active, key_expires_at
      FROM tenants WHERE ${column} = $1`,
     [hash]
   );
 
-  if (!result.rows.length) throw new UnauthorizedError('Invalid API key');
+  if (!result.rows.length) {
+    authRateLimiter.recordFailure(ip);
+    authAudit.logFailure({
+      tenantId: null,
+      authType: 'api_key',
+      identifier: apiKey,
+      ip,
+      userAgent,
+      reason: 'invalid_key',
+    });
+    throw new UnauthorizedError('Invalid API key');
+  }
 
   const tenant = result.rows[0];
-  if (!tenant.is_active) throw new UnauthorizedError('Tenant account is inactive');
+
+  if (!tenant.is_active) {
+    authRateLimiter.recordFailure(ip);
+    authAudit.logFailure({
+      tenantId: tenant.id,
+      authType: 'api_key',
+      identifier: apiKey,
+      ip,
+      userAgent,
+      reason: 'inactive_tenant',
+    });
+    throw new UnauthorizedError('Tenant account is inactive');
+  }
+
+  // Check key expiry (opt-in: NULL means no expiry)
+  if (tenant.key_expires_at && new Date(tenant.key_expires_at) < new Date()) {
+    authRateLimiter.recordFailure(ip);
+    authAudit.logFailure({
+      tenantId: tenant.id,
+      authType: 'api_key',
+      identifier: apiKey,
+      ip,
+      userAgent,
+      reason: 'expired_key',
+    });
+    throw new UnauthorizedError('API key has expired');
+  }
+
+  // Success — reset rate limiter for this IP
+  authRateLimiter.recordSuccess(ip);
 
   return { ...tenant, keyType: isSecret ? 'secret' : 'public' };
 }
@@ -56,7 +104,7 @@ function _extractKey(request) {
  */
 async function authenticate(request, reply) {
   const apiKey = _extractKey(request);
-  request.tenant = await _resolveTenant(apiKey);
+  request.tenant = await _resolveTenant(apiKey, request);
 }
 
 /**
@@ -65,7 +113,7 @@ async function authenticate(request, reply) {
  */
 async function authenticateSecret(request, reply) {
   const apiKey = _extractKey(request);
-  const tenant = await _resolveTenant(apiKey);
+  const tenant = await _resolveTenant(apiKey, request);
 
   if (tenant.keyType !== 'secret') {
     throw new UnauthorizedError('This endpoint requires a secret API key (cb_sk_...)');
@@ -84,7 +132,7 @@ async function authenticateSecretOrJwt(request, reply) {
 
   if (apiKey) {
     // API key path
-    const tenant = await _resolveTenant(apiKey);
+    const tenant = await _resolveTenant(apiKey, request);
     if (tenant.keyType !== 'secret') {
       throw new UnauthorizedError('This endpoint requires a secret API key (cb_sk_...)');
     }

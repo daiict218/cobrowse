@@ -7,6 +7,7 @@ import * as timers from './services/timers.js';
 import * as ablyService from './services/ably.js';
 import * as audit from './services/audit.js';
 import { endSession } from './services/session.js';
+import * as authRateLimiter from './utils/auth-rate-limiter.js';
 
 let app;
 
@@ -56,6 +57,9 @@ async function start() {
     },
   });
 
+  // Start auth rate limiter cleanup timer
+  authRateLimiter.start();
+
   app = await buildApp();
 
   try {
@@ -96,6 +100,9 @@ async function shutdown(signal) {
   } catch (err) {
     logger.error({ err }, 'Error shutting down timers');
   }
+
+  // 2b. Stop auth rate limiter cleanup timer
+  authRateLimiter.shutdown();
 
   // 3. Close cache (Redis connection if CACHE_DRIVER=redis)
   if (typeof cache.shutdown === 'function') {
