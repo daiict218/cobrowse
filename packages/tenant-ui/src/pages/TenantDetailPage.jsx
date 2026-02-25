@@ -9,6 +9,24 @@ import Modal from '../components/Modal.jsx';
 import CopyButton from '../components/CopyButton.jsx';
 import s from './TenantDetailPage.module.scss';
 
+const EXPIRY_OPTIONS = [
+  { label: 'No expiry', value: '' },
+  { label: '90 days', value: '90' },
+  { label: '180 days', value: '180' },
+  { label: '365 days', value: '365' },
+];
+
+function formatExpiryStatus(keyExpiresAt) {
+  if (!keyExpiresAt) return null;
+  const expires = new Date(keyExpiresAt);
+  const now = new Date();
+  const daysLeft = Math.ceil((expires - now) / (1000 * 60 * 60 * 24));
+  if (daysLeft < 0) return { text: 'Expired', className: 'badge-inactive' };
+  if (daysLeft <= 7) return { text: `Expires in ${daysLeft}d`, className: 'badge-inactive' };
+  if (daysLeft <= 30) return { text: `Expires in ${daysLeft}d`, className: '' };
+  return { text: `Expires ${expires.toLocaleDateString()}`, className: 'badge-active' };
+}
+
 function TenantDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -22,7 +40,9 @@ function TenantDetailPage() {
   const [rotating, setRotating] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [rotateError, setRotateError] = useState('');
+  const [expiryDays, setExpiryDays] = useState('');
   const { data: keyEventsData, loading: keyEventsLoading, reload: reloadKeyEvents } = useFetch(`/tenants/${id}/key-events`);
+  const { data: authFailuresData, loading: authFailuresLoading } = useFetch(`/tenants/${id}/auth-failures`);
 
   const tenant = data?.tenant;
 
@@ -64,9 +84,12 @@ function TenantDetailPage() {
     setRotating(true);
     setRotateError('');
     try {
-      const result = await apiFetch(`/tenants/${id}/rotate-keys`, { method: 'POST' });
+      const body = expiryDays ? { expiresInDays: parseInt(expiryDays, 10) } : {};
+      const result = await apiFetch(`/tenants/${id}/rotate-keys`, { method: 'POST', body });
       setConfirmRotate(false);
       setRotatedKeys(result.keys);
+      setExpiryDays('');
+      reload();
       reloadKeyEvents();
     } catch (err) {
       setRotateError(err.message);
@@ -78,6 +101,8 @@ function TenantDetailPage() {
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorBanner message={error} onRetry={reload} />;
   if (!tenant) return null;
+
+  const expiryStatus = formatExpiryStatus(tenant.key_expires_at);
 
   return (
     <div>
@@ -97,6 +122,13 @@ function TenantDetailPage() {
           </div>
         )}
       </div>
+
+      {expiryStatus && expiryStatus.className === 'badge-inactive' && (
+        <div className={s.expiryWarning}>
+          <strong>Key expiry warning:</strong> API keys {expiryStatus.text.toLowerCase()}.
+          Rotate keys to restore access.
+        </div>
+      )}
 
       {editing ? (
         <div className={`card ${s.editCard}`}>
@@ -151,6 +183,16 @@ function TenantDetailPage() {
                 {new Date(tenant.created_at).toLocaleDateString()}
               </div>
             </div>
+            <div className="card">
+              <div className={s.detailLabel}>Key Expiry</div>
+              <div className={s.detailValue}>
+                {expiryStatus ? (
+                  <span className={`badge ${expiryStatus.className}`}>{expiryStatus.text}</span>
+                ) : (
+                  'No expiry set'
+                )}
+              </div>
+            </div>
           </div>
 
           <div className={`card ${s.sectionCard}`}>
@@ -194,6 +236,38 @@ function TenantDetailPage() {
             )}
           </div>
 
+          <div className={`card ${s.sectionCard}`}>
+            <h3 className={s.sectionTitle}>Recent Auth Failures</h3>
+            {authFailuresLoading ? (
+              <LoadingSpinner />
+            ) : (authFailuresData?.failures?.length > 0) ? (
+              <table className={s.auditTable}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Identifier</th>
+                    <th>IP</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {authFailuresData.failures.map((f) => (
+                    <tr key={f.id}>
+                      <td>{new Date(f.created_at).toLocaleString()}</td>
+                      <td>{f.auth_type}</td>
+                      <td><code className={s.monoCell}>{f.identifier || '-'}</code></td>
+                      <td>{f.ip_address || '-'}</td>
+                      <td>{f.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className={s.auditEmpty}>No auth failures recorded.</div>
+            )}
+          </div>
+
           <div className="card">
             <h3 className={s.sectionTitle}>Quick Links</h3>
             <div className={s.quickLinks}>
@@ -217,19 +291,31 @@ function TenantDetailPage() {
         </>
       )}
 
-      <Modal open={confirmRotate} onClose={() => { setConfirmRotate(false); setRotateError(''); }} title="Rotate API Keys">
+      <Modal open={confirmRotate} onClose={() => { setConfirmRotate(false); setRotateError(''); setExpiryDays(''); }} title="Rotate API Keys">
         <div className={s.warning}>
           <strong>This is a destructive action.</strong> The current secret key and public key will be
           permanently revoked. Any integrations using the existing keys will stop working immediately.
         </div>
         <p className={s.confirmDetail}>You will receive a new key pair. Make sure you have access to update
           your integration configuration before proceeding.</p>
+        <div className={`form-group ${s.fieldGroup}`}>
+          <label>Key Expiry</label>
+          <select
+            className="form-input"
+            value={expiryDays}
+            onChange={(e) => setExpiryDays(e.target.value)}
+          >
+            {EXPIRY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
         {rotateError && <div className={s.error}>{rotateError}</div>}
         <div className={s.actions}>
           <button className="btn btn-danger" onClick={handleRotateKeys} disabled={rotating}>
             {rotating ? 'Rotating...' : 'Revoke & Generate New Keys'}
           </button>
-          <button className="btn btn-secondary" onClick={() => { setConfirmRotate(false); setRotateError(''); }} disabled={rotating}>
+          <button className="btn btn-secondary" onClick={() => { setConfirmRotate(false); setRotateError(''); setExpiryDays(''); }} disabled={rotating}>
             Cancel
           </button>
         </div>

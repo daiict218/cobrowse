@@ -157,8 +157,22 @@ async function portalTenantRoutes(fastify) {
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     };
-    const keys = await vendor.rotateKeys(request.portalUser.vendorId, request.params.id, actor);
-    return { keys, warning: 'These keys are shown ONCE. Store them securely.' };
+    const { expiresInDays } = request.body || {};
+    const expiry = expiresInDays ? parseInt(expiresInDays, 10) : undefined;
+    if (expiry !== undefined && (isNaN(expiry) || expiry < 1 || expiry > 3650)) {
+      throw new ValidationError('expiresInDays must be between 1 and 3650');
+    }
+    const result = await vendor.rotateKeys(
+      request.portalUser.vendorId,
+      request.params.id,
+      actor,
+      { expiresInDays: expiry }
+    );
+    return {
+      keys: { secretKey: result.secretKey, publicKey: result.publicKey },
+      keyExpiresAt: result.keyExpiresAt,
+      warning: 'These keys are shown ONCE. Store them securely.',
+    };
   });
 
   // GET /api/v1/portal/tenants/:id/key-events
@@ -173,6 +187,31 @@ async function portalTenantRoutes(fastify) {
   }, async (request) => {
     const events = await vendor.getKeyEvents(request.portalUser.vendorId, request.params.id);
     return { events };
+  });
+
+  // GET /api/v1/portal/tenants/:id/auth-failures
+  fastify.get('/tenants/:id/auth-failures', {
+    preHandler: authenticatePortal,
+    schema: {
+      params: {
+        type: 'object',
+        properties: { id: { type: 'string', format: 'uuid' } },
+      },
+      querystring: {
+        type: 'object',
+        properties: {
+          limit: { type: 'string' },
+        },
+      },
+    },
+  }, async (request) => {
+    const limit = request.query.limit ? Math.min(parseInt(request.query.limit, 10), 100) : 50;
+    const failures = await vendor.getAuthFailures(
+      request.portalUser.vendorId,
+      request.params.id,
+      { limit }
+    );
+    return { failures };
   });
 
   // GET /api/v1/portal/tenants/:id/masking-rules

@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import * as db from '../db/index.js';
 import { UnauthorizedError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
+import * as authRateLimiter from '../utils/auth-rate-limiter.js';
+import * as authAudit from '../services/auth-audit.js';
 
 const BCRYPT_ROUNDS = 12;
 const SESSION_TTL_HOURS = 24;
@@ -26,6 +28,9 @@ async function verifyPassword(plain, hash) {
  * Creates a DB-backed session row and returns the session ID + user info.
  */
 async function login(email, password, { ip, userAgent } = {}) {
+  // Rate limit check — throws 429 if this IP has too many recent failures
+  authRateLimiter.check(ip);
+
   // Cleanup expired sessions opportunistically
   cleanupExpiredSessions().catch((err) =>
     logger.warn({ err }, 'vendor-auth: expired session cleanup failed')
@@ -41,22 +46,61 @@ async function login(email, password, { ip, userAgent } = {}) {
   );
 
   if (!result.rows.length) {
+    authRateLimiter.recordFailure(ip);
+    authAudit.logFailure({
+      tenantId: null,
+      authType: 'portal_login',
+      identifier: email,
+      ip,
+      userAgent,
+      reason: 'invalid_key',
+    });
     throw new UnauthorizedError('Invalid email or password');
   }
 
   const user = result.rows[0];
 
   if (!user.is_active) {
+    authRateLimiter.recordFailure(ip);
+    authAudit.logFailure({
+      tenantId: null,
+      authType: 'portal_login',
+      identifier: email,
+      ip,
+      userAgent,
+      reason: 'disabled_account',
+    });
     throw new UnauthorizedError('Account is disabled');
   }
   if (!user.vendor_active) {
+    authRateLimiter.recordFailure(ip);
+    authAudit.logFailure({
+      tenantId: null,
+      authType: 'portal_login',
+      identifier: email,
+      ip,
+      userAgent,
+      reason: 'disabled_account',
+    });
     throw new UnauthorizedError('Vendor account is disabled');
   }
 
   const valid = await verifyPassword(password, user.password_hash);
   if (!valid) {
+    authRateLimiter.recordFailure(ip);
+    authAudit.logFailure({
+      tenantId: null,
+      authType: 'portal_login',
+      identifier: email,
+      ip,
+      userAgent,
+      reason: 'bad_password',
+    });
     throw new UnauthorizedError('Invalid email or password');
   }
+
+  // Success — reset rate limiter for this IP
+  authRateLimiter.recordSuccess(ip);
 
   // Create session
   const sessionId = crypto.randomBytes(32).toString('hex');

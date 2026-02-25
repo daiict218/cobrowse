@@ -89,6 +89,15 @@ const recordingSizeBytes = new client.Histogram({
   registers: [registry],
 });
 
+// ─── Auth metrics ───────────────────────────────────────────────────────────
+
+const authFailuresTotal = new client.Counter({
+  name: 'cobrowse_auth_failures_total',
+  help: 'Total authentication failures by type and reason',
+  labelNames: ['auth_type', 'reason'],
+  registers: [registry],
+});
+
 // ─── Snapshot metrics ────────────────────────────────────────────────────────
 
 const snapshotSizeBytes = new client.Histogram({
@@ -131,6 +140,7 @@ export {
   dbQueryDuration,
   dbQueryErrorsTotal,
   cacheOperationsTotal,
+  authFailuresTotal,
   snapshotSizeBytes,
   recordingEventsTotal,
   recordingSizeBytes,
