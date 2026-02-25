@@ -10,6 +10,8 @@ import CreateTenantPage from './pages/CreateTenantPage.jsx';
 import TenantDetailPage from './pages/TenantDetailPage.jsx';
 import MaskingRulesPage from './pages/MaskingRulesPage.jsx';
 import SessionsPage from './pages/SessionsPage.jsx';
+import RecordingsPage from './pages/RecordingsPage.jsx';
+import SessionReplayPage from './pages/SessionReplayPage.jsx';
 import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import QuickStartPage from './pages/quick-start/QuickStartPage.jsx';
 
@@ -40,6 +42,8 @@ function App() {
             <Route path="tenants/:id" element={<TenantDetailPage />} />
             <Route path="tenants/:id/masking" element={<MaskingRulesPage />} />
             <Route path="tenants/:id/sessions" element={<SessionsPage />} />
+            <Route path="tenants/:id/recordings" element={<RecordingsPage />} />
+            <Route path="tenants/:id/recordings/:sessionId" element={<SessionReplayPage />} />
             <Route path="tenants/:id/analytics" element={<AnalyticsPage />} />
             <Route path="quick-start" element={<QuickStartPage />} />
           </Route>

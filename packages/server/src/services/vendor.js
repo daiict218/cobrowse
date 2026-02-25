@@ -1,6 +1,7 @@
 import * as db from '../db/index.js';
 import { generateSecretKey, generatePublicKey, hashApiKey } from '../utils/token.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
+import * as recording from './recording.js';
 
 // ─── Key event audit logging ─────────────────────────────────────────────────
 
@@ -344,6 +345,71 @@ async function getKeyEvents(vendorId, tenantId) {
   return result.rows;
 }
 
+// ─── Recordings (vendor-scoped) ──────────────────────────────────────────────
+
+/**
+ * List recordings for a tenant with pagination and optional status filter.
+ */
+async function listRecordings(vendorId, tenantId, { page = 1, limit = 20, status } = {}) {
+  // Verify ownership
+  await getTenant(vendorId, tenantId);
+
+  // No feature-flag gate here — portal admins can always view existing recordings.
+  // The flag gates recording *creation* in recording.startRecording().
+
+  const offset = (page - 1) * limit;
+  const conditions = ['sr.tenant_id = $1'];
+  const values = [tenantId];
+  let idx = 2;
+
+  if (status) {
+    conditions.push(`sr.status = $${idx++}`);
+    values.push(status);
+  }
+
+  const where = conditions.join(' AND ');
+
+  const [countResult, dataResult] = await Promise.all([
+    db.query(
+      `SELECT COUNT(*) FROM session_recordings sr WHERE ${where}`,
+      values
+    ),
+    db.query(
+      `SELECT sr.id, sr.session_id, sr.status, sr.event_count, sr.duration_ms,
+              sr.compressed_size, sr.raw_size, sr.started_at, sr.completed_at,
+              s.agent_id, s.customer_id
+       FROM session_recordings sr
+       LEFT JOIN sessions s ON s.id = sr.session_id
+       WHERE ${where}
+       ORDER BY sr.created_at DESC
+       LIMIT $${idx++} OFFSET $${idx}`,
+      [...values, limit, offset]
+    ),
+  ]);
+
+  return {
+    recordings: dataResult.rows,
+    total: parseInt(countResult.rows[0].count, 10),
+    page,
+    limit,
+  };
+}
+
+/**
+ * Get recording data (events) for replay.
+ */
+async function getRecording(vendorId, tenantId, sessionId) {
+  // Verify ownership
+  await getTenant(vendorId, tenantId);
+
+  const data = await recording.getRecordingData(sessionId, tenantId);
+  if (!data) {
+    throw new NotFoundError('Recording');
+  }
+
+  return data;
+}
+
 export {
   listTenants,
   getTenant,
@@ -353,6 +419,8 @@ export {
   getMaskingRules,
   updateMaskingRules,
   listSessions,
+  listRecordings,
+  getRecording,
   getTenantAnalytics,
   getVendorOverview,
   getKeyEvents,
