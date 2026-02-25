@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useFetch } from '../hooks/useFetch.js';
 import StatsCard from '../components/StatsCard.jsx';
@@ -63,7 +63,10 @@ function AnalyticsPage() {
   const { id } = useParams();
   const [days, setDays] = useState(30);
 
-  const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const from = useMemo(
+    () => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(),
+    [days]
+  );
   const query = `/tenants/${id}/analytics?from=${from}`;
   const { data, loading, error, reload } = useFetch(query, [days]);
 

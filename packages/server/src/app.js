@@ -122,12 +122,7 @@ async function buildApp() {
   // ─── Rate limiting ─────────────────────────────────────────────────────────────
   await app.register(fastifyRateLimit, {
     global:   true,
-    max:      (request) => {
-      // Portal routes: authenticated vendors get a higher limit because the SPA
-      // fires multiple API calls per page navigation (auth/me + data fetches).
-      if (request.url.startsWith('/api/v1/portal/')) return 1000;
-      return 500;  // default: per IP per minute — high enough for HTTP relay polling
-    },
+    max:      500,           // per IP per minute — high enough for HTTP relay polling
     timeWindow: '1 minute',
     keyGenerator: (request) => {
       // Rate limit per tenant when available, otherwise per IP
