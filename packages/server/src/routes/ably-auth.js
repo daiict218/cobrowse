@@ -1,6 +1,7 @@
 import * as ablyService from '../services/ably.js';
 import * as sessionService from '../services/session.js';
-import { authenticate, authenticateSecret } from '../middleware/auth.js';
+import { authenticate, authenticateSecret, authenticateSecretOrJwt } from '../middleware/auth.js';
+import { authenticateJwt } from '../middleware/jwt-auth.js';
 import { verifyCustomerToken, hashApiKey } from '../utils/token.js';
 import { UnauthorizedError, ValidationError } from '../utils/errors.js';
 import * as db from '../db/index.js';
@@ -89,25 +90,29 @@ async function ablyAuthRoutes(fastify) {
 
       case 'agent': {
         // Agent panel connects to session channels.
-        // Authenticated with secret key — high-privilege.
+        // Authenticated with secret key or JWT Bearer token.
         if (!sessionId) throw new ValidationError('sessionId required for agent role');
 
-        // Inline secret key auth (same logic as authenticateSecret middleware)
+        let tenantId;
+        let agentClientId;
+
+        // Try API key first, fall back to JWT
         const apiKey = request.headers['x-api-key'] || request.headers['x-cb-secret-key'];
-        if (!apiKey || !apiKey.startsWith('cb_sk_')) {
-          throw new UnauthorizedError('Secret key required for agent role');
+        if (apiKey && apiKey.startsWith('cb_sk_')) {
+          const hash = hashApiKey(apiKey);
+          const tenantResult = await db.query(
+            `SELECT id, is_active FROM tenants WHERE secret_key_hash = $1`,
+            [hash]
+          );
+          if (!tenantResult.rows.length || !tenantResult.rows[0].is_active) {
+            throw new UnauthorizedError('Invalid secret key');
+          }
+          tenantId = tenantResult.rows[0].id;
+        } else {
+          // JWT path
+          await authenticateJwt(request);
+          tenantId = request.tenant.id;
         }
-
-        const hash = hashApiKey(apiKey);
-        const tenantResult = await db.query(
-          `SELECT id, is_active FROM tenants WHERE secret_key_hash = $1`,
-          [hash]
-        );
-        if (!tenantResult.rows.length || !tenantResult.rows[0].is_active) {
-          throw new UnauthorizedError('Invalid secret key');
-        }
-
-        const tenantId = tenantResult.rows[0].id;
 
         // Confirm session belongs to this tenant
         const session = await sessionService.getSession(sessionId, tenantId);
@@ -115,15 +120,17 @@ async function ablyAuthRoutes(fastify) {
           throw new UnauthorizedError('Session has ended');
         }
 
+        agentClientId = request.agent?.id || session.agent_id;
+
         const tokenRequest = await ablyService.createTokenRequest('agent', {
           tenantId,
           sessionId,
-          clientId: `agent:${session.agent_id}`,
+          clientId: `agent:${agentClientId}`,
         });
 
         // Record agent joined if session is active
         if (session.status === 'active') {
-          await sessionService.recordAgentJoined(sessionId, tenantId, session.agent_id);
+          await sessionService.recordAgentJoined(sessionId, tenantId, agentClientId);
         }
 
         reply.send(tokenRequest);

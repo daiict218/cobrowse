@@ -1,9 +1,13 @@
+import { importSPKI } from 'jose';
+import { SignJWT, generateKeyPair } from 'jose';
 import { authenticateSecret } from '../middleware/auth.js';
+import { evictKeyCache } from '../middleware/jwt-auth.js';
 import { exportTenantEvents } from '../services/audit.js';
 import { ValidationError } from '../utils/errors.js';
 import { generateCustomerToken, hashApiKey } from '../utils/token.js';
 import * as db from '../db/index.js';
 import cache from '../cache/index.js';
+import config from '../config.js';
 
 /**
  * Admin routes — tenant configuration and audit export.
@@ -137,6 +141,108 @@ async function adminRoutes(fastify) {
     preHandler: authenticateSecret,
   }, async (request, reply) => {
     reply.send({ featureFlags: request.tenant.feature_flags });
+  });
+
+  // ─── JWT config — set RS256 public key for vendor SSO ──────────────────────
+  fastify.put('/jwt-config', {
+    preHandler: authenticateSecret,
+    schema: {
+      body: {
+        type: 'object',
+        required: ['publicKeyPem'],
+        properties: {
+          publicKeyPem: { type: 'string', minLength: 1 },
+          issuer:       { type: 'string', maxLength: 256 },
+          audience:     { type: 'string', maxLength: 256 },
+        },
+        additionalProperties: false,
+      },
+    },
+  }, async (request, reply) => {
+    const { publicKeyPem, issuer, audience } = request.body;
+    const { id: tenantId } = request.tenant;
+
+    // Validate PEM by attempting to import it
+    try {
+      await importSPKI(publicKeyPem, 'RS256');
+    } catch {
+      throw new ValidationError('Invalid RSA public key PEM. Expected SPKI format (-----BEGIN PUBLIC KEY-----).');
+    }
+
+    const jwtConfig = { publicKeyPem };
+    if (issuer) jwtConfig.issuer = issuer;
+    if (audience) jwtConfig.audience = audience;
+
+    await db.query(
+      `UPDATE tenants SET jwt_config = $1, updated_at = NOW() WHERE id = $2`,
+      [JSON.stringify(jwtConfig), tenantId]
+    );
+
+    // Evict cached key so next JWT uses the new PEM
+    evictKeyCache(tenantId);
+
+    reply.send({ jwtConfig: { ...jwtConfig, publicKeyPem: '(set)' } });
+  });
+
+  // ─── JWT config — remove ──────────────────────────────────────────────────
+  fastify.delete('/jwt-config', {
+    preHandler: authenticateSecret,
+  }, async (request, reply) => {
+    const { id: tenantId } = request.tenant;
+
+    await db.query(
+      `UPDATE tenants SET jwt_config = NULL, updated_at = NOW() WHERE id = $1`,
+      [tenantId]
+    );
+
+    evictKeyCache(tenantId);
+    reply.code(204).send();
+  });
+
+  // ─── Demo JWT — generate a test keypair + JWT (dev only) ──────────────────
+  fastify.post('/demo-jwt', {
+    preHandler: authenticateSecret,
+  }, async (request, reply) => {
+    if (!config.isDev) {
+      reply.code(403).send({ error: 'Only available in development mode' });
+      return;
+    }
+
+    const { id: tenantId } = request.tenant;
+    const agentId = request.body?.agentId || 'agent_demo';
+    const agentName = request.body?.agentName || 'Demo Agent';
+
+    // Generate ephemeral RS256 keypair
+    const { publicKey, privateKey } = await generateKeyPair('RS256');
+
+    // Export public key as PEM
+    const publicKeyPem = await (async () => {
+      const exported = await crypto.subtle.exportKey('spki', publicKey);
+      const b64 = Buffer.from(exported).toString('base64');
+      const lines = b64.match(/.{1,64}/g).join('\n');
+      return `-----BEGIN PUBLIC KEY-----\n${lines}\n-----END PUBLIC KEY-----`;
+    })();
+
+    // Store config on tenant
+    const jwtConfig = { publicKeyPem };
+    await db.query(
+      `UPDATE tenants SET jwt_config = $1, updated_at = NOW() WHERE id = $2`,
+      [JSON.stringify(jwtConfig), tenantId]
+    );
+    evictKeyCache(tenantId);
+
+    // Sign a JWT
+    const jwt = await new SignJWT({
+      tenantId,
+      name: agentName,
+    })
+      .setProtectedHeader({ alg: 'RS256' })
+      .setSubject(agentId)
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(privateKey);
+
+    reply.send({ jwt, tenantId, agentId, expiresIn: '1h' });
   });
 }
 

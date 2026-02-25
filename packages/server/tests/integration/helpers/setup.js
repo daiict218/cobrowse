@@ -170,6 +170,52 @@ async function createTestSession(overrides = {}) {
   return result.rows[0];
 }
 
+/**
+ * Generate an RS256 key pair for JWT testing.
+ * Returns { publicKeyPem, privateKey } where privateKey is a CryptoKey.
+ */
+async function generateTestJwtKeyPair() {
+  const { generateKeyPair, exportSPKI } = await import('jose');
+  const { publicKey, privateKey } = await generateKeyPair('RS256');
+  const publicKeyPem = await exportSPKI(publicKey);
+  return { publicKeyPem, privateKey, publicKey };
+}
+
+/**
+ * Configure JWT auth for the test tenant.
+ */
+async function configureJwtForTestTenant(publicKeyPem, options = {}) {
+  const jwtConfig = { publicKeyPem };
+  if (options.issuer) jwtConfig.issuer = options.issuer;
+  if (options.audience) jwtConfig.audience = options.audience;
+
+  await pool.query(
+    `UPDATE tenants SET jwt_config = $1 WHERE id = $2`,
+    [JSON.stringify(jwtConfig), testTenantId]
+  );
+}
+
+/**
+ * Sign a test JWT.
+ */
+async function signTestJwt(privateKey, claims = {}) {
+  const { SignJWT } = await import('jose');
+  const defaults = {
+    sub: 'agent_test_jwt',
+    tenantId: testTenantId,
+    name: 'Test JWT Agent',
+  };
+  const merged = { ...defaults, ...claims };
+  const { sub, ...rest } = merged;
+
+  return new SignJWT(rest)
+    .setProtectedHeader({ alg: 'RS256' })
+    .setSubject(sub)
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .sign(privateKey);
+}
+
 export {
   setupDatabase,
   cleanup,
@@ -179,4 +225,7 @@ export {
   getTestKeys,
   getTestApp,
   createTestSession,
+  generateTestJwtKeyPair,
+  configureJwtForTestTenant,
+  signTestJwt,
 };

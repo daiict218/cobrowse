@@ -28,6 +28,11 @@ CREATE TABLE IF NOT EXISTS tenants (
   -- Tenants can only use features that are explicitly enabled for them.
   feature_flags     JSONB       NOT NULL DEFAULT '{"agentControl":false,"sessionReplay":false,"nativeSDK":false}',
 
+  -- JWT SSO configuration for vendor integration.
+  -- Schema: { publicKeyPem: string, issuer?: string, audience?: string }
+  -- When set, agents can authenticate via RS256-signed JWTs instead of API keys.
+  jwt_config        JSONB       DEFAULT NULL,
+
   is_active         BOOLEAN     NOT NULL DEFAULT true,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()

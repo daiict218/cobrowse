@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "npm run dev --workspace=packages/server",
     "build:sdk": "npm run build --workspace=packages/sdk",
+    "build:agent-sdk": "npm run build --workspace=packages/agent-sdk",
     "db:migrate": "npm run db:migrate --workspace=packages/server",
     "db:seed": "npm run db:seed --workspace=packages/server",
     "start": "npm run start --workspace=packages/server",

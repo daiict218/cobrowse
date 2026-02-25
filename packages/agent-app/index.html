@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CoBrowse — Agent Console</title>
   <link rel="stylesheet" href="styles.css" />
-  <!-- rrweb and Ably served from the session server (/static/) -->
-  <link rel="stylesheet" href="/static/vendor/rrweb.css" />
 </head>
 <body>
 
@@ -21,7 +19,7 @@
 
 <div class="layout">
 
-  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <!-- ── Sidebar (now full-width since viewer is in a separate window) ─── -->
   <aside class="sidebar">
 
     <!-- Setup section -->
@@ -44,6 +42,13 @@
         <label class="form-label" for="input-channel-ref">Channel Ref (optional)</label>
         <input class="form-input" id="input-channel-ref" type="text"
           placeholder="e.g. conv_456 (Sprinklr conversation ID)" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-check-label">
+          <input type="checkbox" id="chk-jwt-mode" />
+          JWT Demo Mode (vendor integration)
+        </label>
       </div>
 
       <button class="btn btn-primary" id="btn-start">
@@ -84,6 +89,10 @@
         </div>
       </div>
 
+      <button class="btn btn-primary" id="btn-open-viewer" style="margin-bottom:10px;">
+        🖥️ Open Viewer
+      </button>
+
       <button class="btn btn-danger" id="btn-end">
         ⏹ End Session
       </button>
@@ -102,41 +111,25 @@
 
   </aside>
 
-  <!-- ── Viewer pane ─────────────────────────────────────────────────────── -->
-  <main class="viewer-pane">
-
-    <div class="url-bar" id="url-bar">
-      🌐 <span id="url-display">—</span>
-    </div>
-
-    <!-- Placeholder (shown before session is active) -->
-    <div class="viewer-placeholder" id="viewer-placeholder">
+  <!-- ── Info pane (replaces viewer pane) ───────────────────────────────── -->
+  <main class="info-pane">
+    <div class="info-placeholder" id="info-placeholder">
       <div class="icon">🖥️</div>
       <h2>No active session</h2>
-      <p>Start a co-browse session from the sidebar. The customer's screen will appear here.</p>
+      <p>Start a co-browse session from the sidebar.<br>The viewer will open in a separate window.</p>
     </div>
-
-    <!-- rrweb replay target -->
-    <div id="viewer-frame"></div>
-
-    <!-- Agent pointer (the agent can move this over the customer's view) -->
-    <div id="agent-pointer"></div>
-
-    <!-- Controls -->
-    <div class="pointer-controls" id="pointer-controls" style="display:none;">
-      <div class="icon-btn" id="btn-pointer">
-        🎯 Pointer: OFF
-      </div>
+    <div class="info-placeholder" id="viewer-status" style="display:none;">
+      <div class="icon">✅</div>
+      <h2>Viewer Window Open</h2>
+      <p>The customer's screen is displayed in the viewer window.<br>Use the controls there to manage the pointer and session.</p>
     </div>
-
   </main>
 </div>
 
 <!-- Demo config — sets window.COBROWSE_DEMO_CONFIG with server-injected keys. -->
 <script src="/demo/config.js"></script>
-<!-- rrweb + Ably served from the session server (/static/) -->
-<script src="/static/vendor/rrweb.js"></script>
-<script src="/static/vendor/ably.min.js"></script>
+<!-- Agent SDK (handles session + viewer in separate window) -->
+<script src="/static/sdk/cobrowse-agent.js"></script>
 
 <script src="app.js"></script>
 </body>

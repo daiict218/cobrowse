@@ -1,5 +1,5 @@
 import * as sessionService from '../services/session.js';
-import { authenticateSecret } from '../middleware/auth.js';
+import { authenticateSecretOrJwt } from '../middleware/auth.js';
 import { verifyCustomerToken } from '../utils/token.js';
 import { UnauthorizedError } from '../utils/errors.js';
 
@@ -64,7 +64,7 @@ async function domEventsRoutes(fastify) {
 
   // ─── Fetch DOM events (called by agent panel when Ably is unavailable) ─────
   fastify.get('/:sessionId', {
-    preHandler: authenticateSecret,
+    preHandler: authenticateSecretOrJwt,
     config: {
       rateLimit: { max: 3000, timeWindow: '1 minute' },
     },

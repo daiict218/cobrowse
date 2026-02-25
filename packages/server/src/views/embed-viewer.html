@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CoBrowse — Session Viewer</title>
+  <link rel="stylesheet" href="/static/vendor/rrweb.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0c14;
+      color: #e8eaf2;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* URL bar */
+    .url-bar {
+      background: rgba(15,17,23,0.95);
+      backdrop-filter: blur(4px);
+      padding: 8px 16px;
+      font-size: 12px;
+      color: #7c82a0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .url-bar span { color: #e8eaf2; }
+
+    /* Viewer */
+    #viewer-frame {
+      flex: 1;
+      width: 100%;
+      background: #fff;
+      display: none;
+      overflow: hidden;
+    }
+
+    /* Agent pointer overlay */
+    #agent-pointer {
+      position: fixed;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 3px solid #4f6ef7;
+      box-shadow: 0 0 0 3px rgba(79,110,247,0.25);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      transition: left 0.06s ease, top 0.06s ease;
+      display: none;
+      z-index: 1000;
+    }
+
+    /* Control bar */
+    .control-bar {
+      background: #1a1d27;
+      border-top: 1px solid #2d3148;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .ctrl-btn {
+      background: #22263a;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      color: #e8eaf2;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .ctrl-btn:hover { background: #2d3148; }
+    .ctrl-btn.active { background: rgba(79,110,247,0.2); border-color: #4f6ef7; color: #4f6ef7; }
+    .ctrl-btn.danger { color: #ef4444; border-color: rgba(239,68,68,0.3); }
+    .ctrl-btn.danger:hover { background: rgba(239,68,68,0.15); }
+    .ctrl-spacer { flex: 1; }
+    .ctrl-status { font-size: 11px; color: #7c82a0; }
+
+    /* Placeholder / loading */
+    .placeholder {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: #7c82a0;
+      gap: 12px;
+    }
+    .placeholder .icon { font-size: 48px; }
+    .placeholder h2 { font-size: 18px; color: #e8eaf2; }
+    .placeholder p { font-size: 13px; text-align: center; max-width: 300px; line-height: 1.5; }
+
+    .error-view { color: #ef4444; }
+    .error-view h2 { color: #ef4444; }
+  </style>
+</head>
+<body>
+
+<div class="url-bar" id="url-bar">
+  🌐 <span id="url-display">Loading...</span>
+</div>
+
+<div class="placeholder" id="loading-view">
+  <div class="icon">⏳</div>
+  <h2>Connecting to session...</h2>
+  <p>Waiting for the customer's browser to share content.</p>
+</div>
+
+<div class="placeholder error-view" id="error-view" style="display:none;">
+  <div class="icon">⚠️</div>
+  <h2 id="error-title">Error</h2>
+  <p id="error-detail">Something went wrong.</p>
+</div>
+
+<div id="viewer-frame"></div>
+<div id="agent-pointer"></div>
+
+<div class="control-bar">
+  <button class="ctrl-btn" id="btn-pointer">🎯 Pointer: OFF</button>
+  <div class="ctrl-spacer"></div>
+  <span class="ctrl-status" id="ctrl-status">Connecting...</span>
+  <button class="ctrl-btn danger" id="btn-end">⏹ End Session</button>
+</div>
+
+<script src="/static/vendor/rrweb.js"></script>
+<script src="/static/vendor/ably.min.js"></script>
+
+<script nonce="{{NONCE}}">
+  const SESSION_ID = '{{SESSION_ID}}';
+  const TENANT_ID  = '{{TENANT_ID}}';
+  const SERVER_URL = '{{SERVER_URL}}';
+  const JWT_TOKEN  = '{{JWT_TOKEN}}';
+  const AGENT_ID   = '{{AGENT_ID}}';
+
+  let replayer = null;
+  let ablyClient = null;
+  let pointerMode = false;
+  let domEventSeq = 0;
+  let domEventPollInterval = null;
+  let snapshotPollInterval = null;
+  let sessionPollInterval = null;
+
+  // ─── API helper ──────────────────────────────────────────────────────────
+  async function apiCall(method, path, body) {
+    const options = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + JWT_TOKEN,
+      },
+    };
+    if (body) options.body = JSON.stringify(body);
+    const res = await fetch(SERVER_URL + path, options);
+    if (res.status === 204) return {};
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'HTTP ' + res.status);
+    return data;
+  }
+
+  // ─── Init ──────────────────────────────────────────────────────────────────
+  async function init() {
+    try {
+      // Check session status
+      const session = await apiCall('GET', '/api/v1/sessions/' + SESSION_ID);
+
+      if (session.status === 'ended') {
+        showError('Session Ended', 'This co-browse session has already ended.');
+        return;
+      }
+
+      updateStatus('Session: ' + session.status);
+
+      if (session.status === 'active') {
+        // Session already active — go straight to snapshot polling.
+        // Do NOT also start session polling (it would call startSnapshotPoll
+        // a second time, creating a duplicate replayer).
+        startSnapshotPoll();
+      } else {
+        // Session is pending — poll for status changes until active
+        startSessionPoll();
+      }
+
+      // Connect to Ably for real-time events
+      connectToAbly().catch((err) => {
+        console.error('[viewer] Ably connection failed:', err);
+        updateStatus('Using HTTP polling (WebSocket unavailable)');
+      });
+
+    } catch (err) {
+      showError('Connection Failed', err.message);
+    }
+  }
+
+  // ─── Ably connection ───────────────────────────────────────────────────────
+  async function connectToAbly() {
+    ablyClient = new Ably.Realtime({
+      authUrl:     SERVER_URL + '/api/v1/ably-auth?role=agent&sessionId=' + SESSION_ID,
+      authMethod:  'GET',
+      authHeaders: { 'Authorization': 'Bearer ' + JWT_TOKEN },
+    });
+
+    await new Promise((resolve, reject) => {
+      ablyClient.connection.once('connected', resolve);
+      ablyClient.connection.once('failed',    reject);
+    });
+
+    updateStatus('Connected (real-time)');
+
+    // System events
+    const sysCh = ablyClient.channels.get('session:' + TENANT_ID + ':' + SESSION_ID + ':sys');
+    sysCh.subscribe((msg) => {
+      if (msg.name === 'customer.joined') {
+        clearInterval(sessionPollInterval);
+        updateStatus('Session active');
+        startSnapshotPoll();
+      } else if (msg.name === 'snapshot.updated') {
+        refreshReplayer();
+      } else if (msg.name === 'session.ended') {
+        showError('Session Ended', 'The session has been ended.');
+        teardown();
+      }
+    });
+
+    // DOM events
+    const domCh = ablyClient.channels.get('session:' + TENANT_ID + ':' + SESSION_ID + ':dom');
+    domCh.subscribe('events', (msg) => {
+      if (!replayer) return;
+      const events = Array.isArray(msg.data) ? msg.data : [msg.data];
+      console.log('[viewer] Ably: received', events.length, 'events');
+      for (const event of events) {
+        replayer.addEvent(event);
+        if (event.type === 4 && event.data?.href) {
+          document.getElementById('url-display').textContent = event.data.href;
+        }
+      }
+    });
+  }
+
+  // ─── Session status polling ─────────────────────────────────────────────────
+  function startSessionPoll() {
+    let detected = false;
+    sessionPollInterval = setInterval(async () => {
+      if (detected) return;
+      try {
+        const s = await apiCall('GET', '/api/v1/sessions/' + SESSION_ID);
+        if (s.status === 'active' && !detected) {
+          detected = true;
+          clearInterval(sessionPollInterval);
+          updateStatus('Session active');
+          startSnapshotPoll();
+        } else if (s.status === 'ended') {
+          clearInterval(sessionPollInterval);
+          showError('Session Ended', 'Reason: ' + (s.endReason || 'unknown'));
+          teardown();
+        }
+      } catch (err) { console.error('[viewer] session poll error:', err); }
+    }, 2000);
+  }
+
+  // ─── Snapshot polling ──────────────────────────────────────────────────────
+  function startSnapshotPoll() {
+    let attempts = 0;
+    snapshotPollInterval = setInterval(async () => {
+      attempts++;
+      if (attempts > 30) { clearInterval(snapshotPollInterval); return; }
+      try {
+        const res = await apiCall('GET', '/api/v1/snapshots/' + SESSION_ID);
+        if (res.snapshot) {
+          clearInterval(snapshotPollInterval);
+          initReplayer(res.snapshot);
+        }
+      } catch (err) { console.error('[viewer] snapshot poll error:', err); }
+    }, 1000);
+  }
+
+  // ─── Refresh replayer on navigation ─────────────────────────────────────────
+  async function refreshReplayer() {
+    try {
+      const res = await apiCall('GET', '/api/v1/snapshots/' + SESSION_ID);
+      if (!res.snapshot) return;
+      const events = Array.isArray(res.snapshot) ? res.snapshot : [res.snapshot];
+      if (replayer) {
+        for (const event of events) replayer.addEvent(event);
+      } else {
+        initReplayer(res.snapshot);
+      }
+    } catch (err) { console.error('[viewer] refresh replayer error:', err); }
+  }
+
+  // ─── rrweb Replayer ─────────────────────────────────────────────────────────
+  function initReplayer(snapshotData) {
+    // Guard: destroy existing replayer to prevent duplicate iframes in the container
+    if (replayer) {
+      clearInterval(domEventPollInterval);
+      try { replayer.destroy(); } catch {}
+      replayer = null;
+    }
+
+    const container = document.getElementById('viewer-frame');
+    container.style.display = 'block';
+    document.getElementById('loading-view').style.display = 'none';
+
+    const events = Array.isArray(snapshotData) ? snapshotData : [snapshotData];
+
+    replayer = new rrweb.Replayer(events, {
+      root:          container,
+      liveMode:      true,
+      useVirtualDom: false,
+      UNSAFE_replayCanvas: false,
+    });
+
+    // Date.now() is correct for live mode: events with timestamps in the past
+    // are applied immediately (sync), new events are scheduled with small delays.
+    replayer.startLive(Date.now());
+
+    // Pointer tracking
+    container.addEventListener('mousemove', (e) => {
+      if (!pointerMode) return;
+      const rect = container.getBoundingClientRect();
+      const normX = (e.clientX - rect.left) / rect.width;
+      const normY = (e.clientY - rect.top) / rect.height;
+      sendPointer(normX, normY);
+    });
+
+    updateStatus('Live view active');
+    // HTTP DOM event polling works alongside Ably — rrweb deduplicates by timestamp.
+    // If Ably is blocked (e.g. Brave shields), polling still delivers events.
+    startDomEventPoll();
+  }
+
+  // ─── DOM event HTTP polling ─────────────────────────────────────────────────
+  function startDomEventPoll() {
+    domEventSeq = 0;
+    domEventPollInterval = setInterval(async () => {
+      if (!replayer) return;
+      try {
+        const res = await apiCall('GET', '/api/v1/dom-events/' + SESSION_ID + '?since=' + domEventSeq);
+        if (res.events && res.events.length > 0) {
+          console.log('[viewer] HTTP poll: received', res.events.length, 'events, seq', domEventSeq, '->', res.nextSeq);
+          for (const event of res.events) {
+            replayer.addEvent(event);
+            if (event.type === 4 && event.data?.href) {
+              document.getElementById('url-display').textContent = event.data.href;
+            }
+          }
+          domEventSeq = res.nextSeq;
+        }
+      } catch (err) { console.error('[viewer] dom-event poll error:', err); }
+    }, 50);
+  }
+
+  // ─── Agent pointer ──────────────────────────────────────────────────────────
+  function togglePointer() {
+    pointerMode = !pointerMode;
+    const btn = document.getElementById('btn-pointer');
+    btn.textContent = '🎯 Pointer: ' + (pointerMode ? 'ON' : 'OFF');
+    btn.classList.toggle('active', pointerMode);
+    if (!pointerMode) {
+      document.getElementById('agent-pointer').style.display = 'none';
+    }
+  }
+
+  function sendPointer(normX, normY) {
+    if (!ablyClient || !TENANT_ID) return;
+    const ctrlCh = ablyClient.channels.get('session:' + TENANT_ID + ':' + SESSION_ID + ':ctrl');
+    ctrlCh.publish('pointer', { x: normX, y: normY });
+
+    const pointer = document.getElementById('agent-pointer');
+    const frame = document.getElementById('viewer-frame');
+    const rect = frame.getBoundingClientRect();
+    pointer.style.display = 'block';
+    pointer.style.left = (rect.left + normX * rect.width) + 'px';
+    pointer.style.top  = (rect.top  + normY * rect.height) + 'px';
+  }
+
+  // ─── End session ────────────────────────────────────────────────────────────
+  async function endSession() {
+    try {
+      await apiCall('DELETE', '/api/v1/sessions/' + SESSION_ID);
+      showError('Session Ended', 'You ended the session.');
+      teardown();
+      notifyParent({ type: 'session.stateChange', state: 'ended' });
+    } catch (err) {
+      alert('Failed to end session: ' + err.message);
+    }
+  }
+
+  // ─── Teardown ───────────────────────────────────────────────────────────────
+  function teardown() {
+    clearInterval(domEventPollInterval);
+    clearInterval(snapshotPollInterval);
+    clearInterval(sessionPollInterval);
+    if (ablyClient) { ablyClient.connection.close(); ablyClient = null; }
+    replayer = null;
+  }
+
+  // ─── UI helpers ─────────────────────────────────────────────────────────────
+  function showError(title, detail) {
+    document.getElementById('loading-view').style.display = 'none';
+    document.getElementById('viewer-frame').style.display = 'none';
+    document.getElementById('error-view').style.display = 'flex';
+    document.getElementById('error-title').textContent = title;
+    document.getElementById('error-detail').textContent = detail;
+  }
+
+  function updateStatus(text) {
+    document.getElementById('ctrl-status').textContent = text;
+  }
+
+  // ─── postMessage API for parent window ──────────────────────────────────────
+  function notifyParent(msg) {
+    if (window.opener) window.opener.postMessage(msg, '*');
+    if (window.parent !== window) window.parent.postMessage(msg, '*');
+  }
+
+  window.addEventListener('message', (e) => {
+    // Only accept commands from the window that opened us (Agent SDK)
+    // or the parent frame (if embedded as iframe). Prevents cross-origin
+    // attackers from triggering session actions via postMessage.
+    if (e.source !== window.opener && e.source !== window.parent) return;
+
+    if (e.data?.action === 'endSession') endSession();
+    if (e.data?.action === 'togglePointer') togglePointer();
+  });
+
+  // ─── Wire up controls ─────────────────────────────────────────────────────
+  document.getElementById('btn-pointer').addEventListener('click', togglePointer);
+  document.getElementById('btn-end').addEventListener('click', endSession);
+
+  // ─── Boot ───────────────────────────────────────────────────────────────────
+  init();
+</script>
+
+</body>
+</html>
