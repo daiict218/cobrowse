@@ -3,8 +3,9 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import s from './Sidebar.module.scss';
 
 const navItems = [
-  { to: '/portal',          label: 'Dashboard',  icon: '\u2302' },
-  { to: '/portal/tenants',  label: 'Tenants',    icon: '\u2630' },
+  { to: '/portal',              label: 'Dashboard',    icon: '\u2302' },
+  { to: '/portal/tenants',      label: 'Tenants',      icon: '\u2630' },
+  { to: '/portal/quick-start',  label: 'Quick Start',  icon: '\u2139' },
 ];
 
 function Sidebar({ collapsed, onToggle }) {

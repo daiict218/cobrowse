@@ -174,6 +174,9 @@ function TenantDetailPage() {
               <Link to={`/portal/tenants/${id}/masking`} className="btn btn-secondary btn-sm">
                 Masking Rules
               </Link>
+              <Link to="/portal/quick-start" className="btn btn-secondary btn-sm">
+                Integration Guide
+              </Link>
             </div>
           </div>
         </>

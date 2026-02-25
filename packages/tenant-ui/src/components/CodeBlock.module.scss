@@ -1,0 +1,43 @@
+.codeBlock {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: var(--space-md);
+  border: 1px solid #2d2d2d;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: #1e1e1e;
+  border-bottom: 1px solid #2d2d2d;
+  min-height: 40px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pre {
+  background: #1a1a2e;
+  padding: var(--space-md);
+  margin: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    color: #e4e4e7;
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    white-space: pre;
+  }
+}
