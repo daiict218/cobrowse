@@ -81,8 +81,7 @@ async function seed() {
     }
 
     // Seed vendor user (admin)
-    // bcrypt is a native module — import dynamically to avoid breaking non-portal flows
-    const bcrypt = await import('bcrypt');
+    const bcrypt = await import('bcryptjs');
     const passwordHash = await bcrypt.default.hash('cobrowse123', 12);
 
     await pool.query(

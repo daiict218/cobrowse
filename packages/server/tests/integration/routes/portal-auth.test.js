@@ -11,7 +11,7 @@ vi.mock('../../../src/utils/logger.js', () => ({
 
 import { setupDatabase, teardown, getPool } from '../helpers/setup.js';
 import buildApp from '../../../src/app.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 let app;
 let pool;

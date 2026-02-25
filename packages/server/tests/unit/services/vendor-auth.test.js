@@ -9,7 +9,7 @@ vi.mock('../../../src/utils/logger.js', () => ({
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock('bcrypt', () => ({
+vi.mock('bcryptjs', () => ({
   default: {
     hash: vi.fn().mockResolvedValue('$2b$12$mockedhash'),
     compare: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('bcrypt', () => ({
 }));
 
 import * as db from '../../../src/db/index.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import {
   hashPassword,
   verifyPassword,
