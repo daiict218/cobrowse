@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import Modal from '../components/Modal.jsx';
+import CopyButton from '../components/CopyButton.jsx';
 import s from './TenantDetailPage.module.scss';
 
 function TenantDetailPage() {
@@ -183,11 +184,17 @@ function TenantDetailPage() {
             </p>
             <div className={`form-group ${s.keyGroup}`}>
               <label>Secret Key</label>
-              <code className={s.keyCode}>{rotatedKeys.secretKey}</code>
+              <div className={s.keyRow}>
+                <code className={s.keyCode}>{rotatedKeys.secretKey}</code>
+                <CopyButton value={rotatedKeys.secretKey} />
+              </div>
             </div>
             <div className={`form-group ${s.keyGroupLg}`}>
               <label>Public Key</label>
-              <code className={s.keyCode}>{rotatedKeys.publicKey}</code>
+              <div className={s.keyRow}>
+                <code className={s.keyCode}>{rotatedKeys.publicKey}</code>
+                <CopyButton value={rotatedKeys.publicKey} />
+              </div>
             </div>
             <button className="btn btn-primary" onClick={() => setRotatedKeys(null)}>Done</button>
           </div>

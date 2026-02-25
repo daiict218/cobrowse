@@ -99,11 +99,19 @@
   margin-bottom: var(--space-lg);
 }
 
+.keyRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 .keyCode {
+  flex: 1;
   display: block;
   padding: var(--space-sm);
   background: var(--color-bg);
   border-radius: var(--radius-sm);
   font-size: 13px;
   word-break: break-all;
+  min-width: 0;
 }

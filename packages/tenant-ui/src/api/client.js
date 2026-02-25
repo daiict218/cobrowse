@@ -17,9 +17,12 @@ class ApiError extends Error {
 async function apiFetch(path, options = {}) {
   const { body, ...rest } = options;
 
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+
   const config = {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...rest,
   };
 
