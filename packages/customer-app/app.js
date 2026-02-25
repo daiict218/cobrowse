@@ -21,11 +21,11 @@
 // ─── Config ────────────────────────────────────────────────────────────────────
 // When served from the Fastify server (/demo/customer/), window.COBROWSE_DEMO_CONFIG
 // is pre-populated by /demo/config.js with the correct server URL and keys.
-// When opened directly in local dev (localhost:3001), falls back to hardcoded values.
+// Keys must come from server-injected config — never hardcode secrets or keys.
 const _demo = window.COBROWSE_DEMO_CONFIG || {};
 const CONFIG = {
   serverUrl:  _demo.serverUrl  || 'http://localhost:4000',
-  publicKey:  _demo.publicKey  || 'cb_pk_cd3be5d34e8c0439e9dfb581b2a735d7f443b006e7400a48',
+  publicKey:  _demo.publicKey  || '',
   customerId: _demo.customerId || 'cust_demo_001',  // In production: authenticated user ID
 };
 

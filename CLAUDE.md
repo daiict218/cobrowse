@@ -78,7 +78,7 @@ Note: Claude can automatically pull CLAUDE.md context from parent directories wh
 - No breaking API changes without versioning plan.
 - All network messages are schema-validated.
 - All timestamps use a single time source strategy (server authoritative if needed).
-- No secrets in code or logs.
+- **ZERO secrets in code — ABSOLUTE RULE.** Never hardcode, paste, or use as a fallback default any API key, secret key, token, password, private key, or credential in source files. Not even in demo apps, test fixtures, config defaults, or comments. All secrets must come from environment variables or server-injected config at runtime. Violations are blocking — stop and fix before committing. If you see an existing hardcoded secret, remove it immediately.
 
 ## 8) Security and privacy requirements (non-negotiable)
 ### Consent and control
@@ -158,5 +158,14 @@ When proposing a plan, format it as:
 6) Risks and mitigations
 7) Open questions
 
-## 14) Maintenance rule
+## 14) Git and PR workflow (mandatory)
+- **One feature = one branch.** Create a new branch (e.g. `feat/feature-name`) for every task.
+- **Never push directly to `main`.** Always open a PR and wait for the owner to merge.
+- **Never modify existing tests** unless explicitly asked. Write new test files for new functionality.
+- **Always run tests** before committing to verify nothing is broken.
+- **Rebuild the SDK** (`npm run build:sdk`) after any change to `packages/sdk/src/` — the browser loads the bundled `cobrowse.js`, not source files.
+- **Dotenv loads from `packages/server/.env`**, not the repo root `.env`. Set server env vars there.
+- **Demo keys** (`DEMO_SECRET_KEY`, `DEMO_PUBLIC_KEY`) must be set in `packages/server/.env` for the demo apps to authenticate. Run `npm run db:seed` to generate them.
+
+## 15) Maintenance rule
 If you notice a recurring mistake (style, security, workflow), propose a concrete update to this CLAUDE.md or the relevant @docs/* file so it does not repeat. :contentReference[oaicite:3]{index=3}
