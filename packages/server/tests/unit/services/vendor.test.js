@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const { mockQuery } = vi.hoisted(() => ({ mockQuery: vi.fn() }));
 vi.mock('../../../src/db/index.js', () => ({
-  query: vi.fn(),
+  query: mockQuery,
+  transaction: vi.fn(async (fn) => fn({ query: mockQuery })),
 }));
 
 vi.mock('../../../src/utils/token.js', () => ({
@@ -68,9 +70,12 @@ describe('vendor service', () => {
 
   describe('createTenant', () => {
     it('creates tenant and returns keys', async () => {
+      // INSERT tenant (inside transaction)
       db.query.mockResolvedValueOnce({
         rows: [{ id: 'new-id', name: 'New Tenant', allowed_domains: [], is_active: true, feature_flags: {}, created_at: new Date() }],
       });
+      // logKeyEvent INSERT (inside transaction)
+      db.query.mockResolvedValueOnce({ rows: [] });
 
       const result = await createTenant(vendorId, { name: 'New Tenant' });
       expect(result.tenant.name).toBe('New Tenant');
@@ -104,7 +109,9 @@ describe('vendor service', () => {
     it('generates new keys', async () => {
       // getTenant
       db.query.mockResolvedValueOnce({ rows: [mockTenant] });
-      // UPDATE
+      // UPDATE keys (inside transaction)
+      db.query.mockResolvedValueOnce({ rows: [] });
+      // logKeyEvent INSERT (inside transaction)
       db.query.mockResolvedValueOnce({ rows: [] });
 
       const keys = await rotateKeys(vendorId, tenantId);
