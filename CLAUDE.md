@@ -177,5 +177,14 @@ When proposing a plan, format it as:
 - **Dev-only endpoints** (e.g. `/api/v1/admin/demo-jwt`) must also be gated on `DEMO_SECRET_KEY` presence, not just `isDev`, so they work on Railway demo deployments.
 - **Deploy with `railway up --detach`** (uploads local files). `railway redeploy` only restarts the last successful image — it won't pick up new code.
 
-## 16) Maintenance rule
+## 16) Frontend styling conventions (mandatory for tenant-ui)
+- **No inline styles.** Never use `style={{}}` in JSX. All styles go in `.module.scss` files.
+- **SCSS modules** — every component/page gets a co-located `ComponentName.module.scss` file, imported as `import s from './ComponentName.module.scss'`.
+- **Class name serialization** — Vite is configured to produce plain readable class names in development (e.g. `LoginPage_wrapper`) and hashed/serialized names in production (e.g. `_a1b2c3`). This is handled in `packages/tenant-ui/vite.config.js` via `css.modules.generateScopedName`.
+- **Global utility classes** (`.btn`, `.card`, `.form-group`, `.form-input`, `.page-header`, `.badge`, etc.) are defined in `packages/tenant-ui/src/styles/global.scss` and used as plain `className` strings. Do not duplicate these in SCSS modules.
+- **CSS custom properties** are defined in `packages/tenant-ui/src/styles/variables.scss` — reference them as `var(--color-primary)`, `var(--space-md)`, etc. Do not hardcode color or spacing values.
+- **Dynamic values** (e.g. a `size` prop) are the only acceptable use of inline `style` — and only for the specific dynamic property, not for layout or theming.
+- **Rebuild the tenant UI** (`npm run build:tenant-ui`) after any changes to `packages/tenant-ui/src/`.
+
+## 17) Maintenance rule
 If you notice a recurring mistake (style, security, workflow), propose a concrete update to this CLAUDE.md or the relevant @docs/* file so it does not repeat. :contentReference[oaicite:3]{index=3}

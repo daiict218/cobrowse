@@ -1,0 +1,200 @@
+import { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useFetch } from '../hooks/useFetch.js';
+import { apiFetch } from '../api/client.js';
+import { useAuth } from '../hooks/useAuth.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
+import ErrorBanner from '../components/ErrorBanner.jsx';
+import Modal from '../components/Modal.jsx';
+import s from './TenantDetailPage.module.scss';
+
+function TenantDetailPage() {
+  const { id } = useParams();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const { data, loading, error, reload } = useFetch(`/tenants/${id}`);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [rotatedKeys, setRotatedKeys] = useState(null);
+  const [rotating, setRotating] = useState(false);
+
+  const tenant = data?.tenant;
+
+  const startEdit = () => {
+    setForm({
+      name: tenant.name,
+      allowedDomains: (tenant.allowed_domains || []).join(', '),
+      isActive: tenant.is_active,
+    });
+    setEditing(true);
+    setSaveError('');
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError('');
+    try {
+      await apiFetch(`/tenants/${id}`, {
+        method: 'PUT',
+        body: {
+          name: form.name,
+          allowedDomains: form.allowedDomains
+            .split(',')
+            .map((d) => d.trim())
+            .filter(Boolean),
+          isActive: form.isActive,
+        },
+      });
+      setEditing(false);
+      reload();
+    } catch (err) {
+      setSaveError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRotateKeys = async () => {
+    if (!window.confirm('Rotate API keys? Existing keys will stop working immediately.')) return;
+    setRotating(true);
+    try {
+      const result = await apiFetch(`/tenants/${id}/rotate-keys`, { method: 'POST' });
+      setRotatedKeys(result.keys);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setRotating(false);
+    }
+  };
+
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorBanner message={error} onRetry={reload} />;
+  if (!tenant) return null;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1>{tenant.name}</h1>
+          <span className={`badge ${tenant.is_active ? 'badge-active' : 'badge-inactive'}`}>
+            {tenant.is_active ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+        {isAdmin && !editing && (
+          <div className={s.headerActions}>
+            <button className="btn btn-secondary" onClick={startEdit}>Edit</button>
+            <button className="btn btn-danger btn-sm" onClick={handleRotateKeys} disabled={rotating}>
+              {rotating ? 'Rotating...' : 'Rotate Keys'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {editing ? (
+        <div className={`card ${s.editCard}`}>
+          {saveError && <div className={s.error}>{saveError}</div>}
+          <div className={`form-group ${s.fieldGroup}`}>
+            <label>Name</label>
+            <input
+              className="form-input"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+          <div className={`form-group ${s.fieldGroup}`}>
+            <label>Allowed Domains</label>
+            <input
+              className="form-input"
+              value={form.allowedDomains}
+              onChange={(e) => setForm({ ...form, allowedDomains: e.target.value })}
+            />
+          </div>
+          <div className={`form-group ${s.fieldGroupLg}`}>
+            <label className={s.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+              />
+              Active
+            </label>
+          </div>
+          <div className={s.actions}>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            <button className="btn btn-secondary" onClick={() => setEditing(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className={s.detailGrid}>
+            <div className="card">
+              <div className={s.detailLabel}>Allowed Domains</div>
+              <div className={s.detailValue}>
+                {(tenant.allowed_domains || []).length > 0
+                  ? tenant.allowed_domains.join(', ')
+                  : 'All domains (unrestricted)'}
+              </div>
+            </div>
+            <div className="card">
+              <div className={s.detailLabel}>Created</div>
+              <div className={s.detailValue}>
+                {new Date(tenant.created_at).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+
+          <div className={`card ${s.sectionCard}`}>
+            <h3 className={s.sectionTitle}>Feature Flags</h3>
+            <div className={s.flagsList}>
+              {Object.entries(tenant.feature_flags || {}).map(([key, val]) => (
+                <span key={key} className={val ? s.flagEnabled : s.flagDisabled}>
+                  {val ? '\u2713' : '\u2717'} {key}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 className={s.sectionTitle}>Quick Links</h3>
+            <div className={s.quickLinks}>
+              <Link to={`/portal/tenants/${id}/sessions`} className="btn btn-secondary btn-sm">
+                Sessions
+              </Link>
+              <Link to={`/portal/tenants/${id}/analytics`} className="btn btn-secondary btn-sm">
+                Analytics
+              </Link>
+              <Link to={`/portal/tenants/${id}/masking`} className="btn btn-secondary btn-sm">
+                Masking Rules
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
+
+      <Modal open={!!rotatedKeys} onClose={() => setRotatedKeys(null)} title="Keys Rotated">
+        {rotatedKeys && (
+          <div>
+            <p className={s.warning}>
+              These keys are shown ONCE. Previous keys are now invalid.
+            </p>
+            <div className={`form-group ${s.keyGroup}`}>
+              <label>Secret Key</label>
+              <code className={s.keyCode}>{rotatedKeys.secretKey}</code>
+            </div>
+            <div className={`form-group ${s.keyGroupLg}`}>
+              <label>Public Key</label>
+              <code className={s.keyCode}>{rotatedKeys.publicKey}</code>
+            </div>
+            <button className="btn btn-primary" onClick={() => setRotatedKeys(null)}>Done</button>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+export default TenantDetailPage;

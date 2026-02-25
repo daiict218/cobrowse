@@ -1,7 +1,7 @@
 [build]
 # Install deps and bundle SDKs. DB migration runs at startup (not build)
 # because Railway's internal DB hostname is only available at runtime.
-buildCommand = "npm ci && npm run build:sdk && npm run build:agent-sdk"
+buildCommand = "npm ci && npm run build:sdk && npm run build:agent-sdk && npm run build:tenant-ui"
 
 [deploy]
 # Migrate + seed on every start (both are idempotent), then start the server.
