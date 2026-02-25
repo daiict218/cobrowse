@@ -367,6 +367,11 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
     wildcard:      false,
   });
 
+  // /portal (no trailing slash) → redirect to /portal/
+  app.get('/portal', async (request, reply) => {
+    return reply.redirect('/portal/');
+  });
+
   // SPA fallback — all /portal/* paths serve index.html for client-side routing
   app.get('/portal/*', async (request, reply) => {
     return reply.sendFile('index.html', path.join(__dirname, '../public/tenant-ui'));

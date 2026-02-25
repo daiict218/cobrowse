@@ -186,5 +186,13 @@ When proposing a plan, format it as:
 - **Dynamic values** (e.g. a `size` prop) are the only acceptable use of inline `style` — and only for the specific dynamic property, not for layout or theming.
 - **Rebuild the tenant UI** (`npm run build:tenant-ui`) after any changes to `packages/tenant-ui/src/`.
 
-## 17) Maintenance rule
+## 17) Frontend auth and security conventions (mandatory)
+- **Cookies only for auth.** Session tokens are stored in httpOnly, SameSite=Strict, Secure (prod) cookies set by the server. **NEVER** use localStorage, sessionStorage, or JS-accessible cookies for auth tokens — they are vulnerable to XSS.
+- **`credentials: 'include'`** on all API calls so the browser sends the session cookie automatically.
+- **GuestRoute** wraps the login page — if a user is already authenticated, they get redirected to the dashboard. No authenticated user should ever see the login form.
+- **ProtectedRoute** wraps all authenticated pages — if not authenticated, redirect to login.
+- **401 auto-redirect** — the `apiFetch` client automatically redirects to `/portal/login` on 401 responses (except for auth endpoints themselves).
+- **No tokens in URLs** — never pass session tokens, API keys, or secrets as query parameters.
+
+## 18) Maintenance rule
 If you notice a recurring mistake (style, security, workflow), propose a concrete update to this CLAUDE.md or the relevant @docs/* file so it does not repeat. :contentReference[oaicite:3]{index=3}

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import GuestRoute from './components/GuestRoute.jsx';
 import Layout from './components/Layout.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
@@ -16,9 +17,16 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/portal/login" element={<LoginPage />} />
           <Route
-            path="/portal"
+            path="/portal/login"
+            element={
+              <GuestRoute>
+                <LoginPage />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/portal/"
             element={
               <ProtectedRoute>
                 <Layout />
@@ -33,7 +41,9 @@ function App() {
             <Route path="tenants/:id/sessions" element={<SessionsPage />} />
             <Route path="tenants/:id/analytics" element={<AnalyticsPage />} />
           </Route>
-          <Route path="*" element={<Navigate to="/portal" replace />} />
+          {/* /portal without trailing slash → redirect to /portal/ */}
+          <Route path="/portal" element={<Navigate to="/portal/" replace />} />
+          <Route path="*" element={<Navigate to="/portal/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
