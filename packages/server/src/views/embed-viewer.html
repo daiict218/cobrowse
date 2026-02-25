@@ -313,7 +313,8 @@
       liveMode:      true,
       useVirtualDom: false,
       UNSAFE_replayCanvas: false,
-    });
+      mouseTail:     false,     // Disable mouse trail — with network latency, trails
+    });                          // accumulate into visual noise covering the view
 
     // Date.now() is correct for live mode: events with timestamps in the past
     // are applied immediately (sync), new events are scheduled with small delays.
