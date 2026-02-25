@@ -199,12 +199,15 @@ async function adminRoutes(fastify) {
     reply.code(204).send();
   });
 
-  // ─── Demo JWT — generate a test keypair + JWT (dev only) ──────────────────
+  // ─── Demo JWT — generate a test keypair + JWT (dev/demo only) ──────────────
+  // Available in development mode or when DEMO_SECRET_KEY is configured
+  // (i.e. deployed demo environments like Railway). Still requires secret key auth.
   fastify.post('/demo-jwt', {
     preHandler: authenticateSecret,
   }, async (request, reply) => {
-    if (!config.isDev) {
-      reply.code(403).send({ error: 'Only available in development mode' });
+    const isDemoDeployment = !!process.env.DEMO_SECRET_KEY;
+    if (!config.isDev && !isDemoDeployment) {
+      reply.code(403).send({ error: 'Only available in development or demo mode' });
       return;
     }
 
