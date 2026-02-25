@@ -64,6 +64,8 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
+  // Clean key_events first (FK references tenants + vendor_users)
+  await pool.query('DELETE FROM key_events WHERE tenant_id IN (SELECT id FROM tenants WHERE vendor_id = $1)', [vendorId]);
   // Clean tenants created by tests (keep test vendor)
   await pool.query('DELETE FROM tenants WHERE vendor_id = $1', [vendorId]);
 });

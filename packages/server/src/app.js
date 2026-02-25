@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
@@ -377,9 +378,31 @@ window.COBROWSE_DEMO_CONFIG.serverUrl = window.location.origin;
     return reply.redirect('/portal/');
   });
 
-  // SPA fallback — all /portal/* paths serve index.html for client-side routing
+  // SPA fallback — serve static assets from subdirectories (e.g. /portal/assets/*)
+  // or fall back to index.html for client-side routes.
+  // Note: reply.sendFile() always uses the first @fastify/static root, so we
+  // read asset files directly to ensure correct MIME types.
+  const tenantUiRoot = path.join(__dirname, '../public/tenant-ui');
+  const MIME_TYPES = { '.js': 'application/javascript', '.css': 'text/css', '.map': 'application/json' };
   app.get('/portal/*', async (request, reply) => {
-    return reply.sendFile('index.html', path.join(__dirname, '../public/tenant-ui'));
+    const urlPath = request.params['*'];
+    const ext = path.extname(urlPath);
+    if (ext && MIME_TYPES[ext]) {
+      const filePath = path.join(tenantUiRoot, urlPath);
+      // Prevent path traversal
+      if (!filePath.startsWith(tenantUiRoot)) {
+        reply.code(403);
+        return { error: 'Forbidden' };
+      }
+      if (fs.existsSync(filePath)) {
+        reply.type(MIME_TYPES[ext]);
+        return fs.createReadStream(filePath);
+      }
+      reply.code(404);
+      return { error: 'Not found' };
+    }
+    // Client-side route — serve the SPA shell
+    return reply.sendFile('index.html', tenantUiRoot);
   });
 
   return app;

@@ -2,6 +2,16 @@ import * as db from '../db/index.js';
 import { generateSecretKey, generatePublicKey, hashApiKey } from '../utils/token.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
 
+// ─── Key event audit logging ─────────────────────────────────────────────────
+
+async function logKeyEvent(tenantId, eventType, actor = {}) {
+  await db.query(
+    `INSERT INTO key_events (tenant_id, user_id, event_type, ip_address, user_agent)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [tenantId, actor.userId || null, eventType, actor.ip || null, actor.userAgent || null]
+  );
+}
+
 // ─── Tenant CRUD (vendor-scoped) ──────────────────────────────────────────────
 
 /**
@@ -39,7 +49,7 @@ async function getTenant(vendorId, tenantId) {
  * Create a new tenant for a vendor.
  * Returns the tenant + plaintext API keys (shown ONCE).
  */
-async function createTenant(vendorId, { name, allowedDomains }) {
+async function createTenant(vendorId, { name, allowedDomains }, actor = {}) {
   if (!name || !name.trim()) {
     throw new ValidationError('Tenant name is required');
   }
@@ -56,8 +66,11 @@ async function createTenant(vendorId, { name, allowedDomains }) {
     [name.trim(), secretHash, publicHash, allowedDomains || [], vendorId]
   );
 
+  const tenant = result.rows[0];
+  await logKeyEvent(tenant.id, 'keys.created', actor);
+
   return {
-    tenant: result.rows[0],
+    tenant,
     keys: { secretKey, publicKey },
   };
 }
@@ -110,7 +123,7 @@ async function updateTenant(vendorId, tenantId, updates) {
 /**
  * Rotate API keys for a tenant. Returns new plaintext keys (shown ONCE).
  */
-async function rotateKeys(vendorId, tenantId) {
+async function rotateKeys(vendorId, tenantId, actor = {}) {
   // Verify ownership
   await getTenant(vendorId, tenantId);
 
@@ -122,6 +135,8 @@ async function rotateKeys(vendorId, tenantId) {
      WHERE id = $3 AND vendor_id = $4`,
     [hashApiKey(secretKey), hashApiKey(publicKey), tenantId, vendorId]
   );
+
+  await logKeyEvent(tenantId, 'keys.rotated', actor);
 
   return { secretKey, publicKey };
 }
@@ -304,6 +319,26 @@ async function getVendorOverview(vendorId) {
   };
 }
 
+// ─── Key event audit trail ───────────────────────────────────────────────────
+
+async function getKeyEvents(vendorId, tenantId) {
+  // Verify ownership
+  await getTenant(vendorId, tenantId);
+
+  const result = await db.query(
+    `SELECT ke.id, ke.event_type, ke.ip_address, ke.user_agent, ke.metadata, ke.created_at,
+            vu.name AS user_name, vu.email AS user_email
+     FROM key_events ke
+     LEFT JOIN vendor_users vu ON vu.id = ke.user_id
+     WHERE ke.tenant_id = $1
+     ORDER BY ke.created_at DESC
+     LIMIT 50`,
+    [tenantId]
+  );
+
+  return result.rows;
+}
+
 export {
   listTenants,
   getTenant,
@@ -315,4 +350,5 @@ export {
   listSessions,
   getTenantAnalytics,
   getVendorOverview,
+  getKeyEvents,
 };

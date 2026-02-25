@@ -22,6 +22,7 @@ function TenantDetailPage() {
   const [rotating, setRotating] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [rotateError, setRotateError] = useState('');
+  const { data: keyEventsData, loading: keyEventsLoading, reload: reloadKeyEvents } = useFetch(`/tenants/${id}/key-events`);
 
   const tenant = data?.tenant;
 
@@ -66,6 +67,7 @@ function TenantDetailPage() {
       const result = await apiFetch(`/tenants/${id}/rotate-keys`, { method: 'POST' });
       setConfirmRotate(false);
       setRotatedKeys(result.keys);
+      reloadKeyEvents();
     } catch (err) {
       setRotateError(err.message);
     } finally {
@@ -160,6 +162,36 @@ function TenantDetailPage() {
                 </span>
               ))}
             </div>
+          </div>
+
+          <div className={`card ${s.sectionCard}`}>
+            <h3 className={s.sectionTitle}>Key History</h3>
+            {keyEventsLoading ? (
+              <LoadingSpinner />
+            ) : (keyEventsData?.events?.length > 0) ? (
+              <table className={s.auditTable}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Event</th>
+                    <th>Performed By</th>
+                    <th>IP Address</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {keyEventsData.events.map((ev) => (
+                    <tr key={ev.id}>
+                      <td>{new Date(ev.created_at).toLocaleString()}</td>
+                      <td>{ev.event_type === 'keys.created' ? 'Keys Created' : 'Keys Rotated'}</td>
+                      <td>{ev.user_name || ev.user_email || 'System'}</td>
+                      <td>{ev.ip_address || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className={s.auditEmpty}>No key events recorded yet.</div>
+            )}
           </div>
 
           <div className="card">

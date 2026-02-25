@@ -91,7 +91,12 @@ async function portalTenantRoutes(fastify) {
       },
     },
   }, async (request, reply) => {
-    const result = await vendor.createTenant(request.portalUser.vendorId, request.body);
+    const actor = {
+      userId: request.portalUser.id,
+      ip: request.ip,
+      userAgent: request.headers['user-agent'],
+    };
+    const result = await vendor.createTenant(request.portalUser.vendorId, request.body, actor);
     reply.code(201);
     return result;
   });
@@ -147,8 +152,27 @@ async function portalTenantRoutes(fastify) {
       },
     },
   }, async (request) => {
-    const keys = await vendor.rotateKeys(request.portalUser.vendorId, request.params.id);
+    const actor = {
+      userId: request.portalUser.id,
+      ip: request.ip,
+      userAgent: request.headers['user-agent'],
+    };
+    const keys = await vendor.rotateKeys(request.portalUser.vendorId, request.params.id, actor);
     return { keys, warning: 'These keys are shown ONCE. Store them securely.' };
+  });
+
+  // GET /api/v1/portal/tenants/:id/key-events
+  fastify.get('/tenants/:id/key-events', {
+    preHandler: authenticatePortal,
+    schema: {
+      params: {
+        type: 'object',
+        properties: { id: { type: 'string', format: 'uuid' } },
+      },
+    },
+  }, async (request) => {
+    const events = await vendor.getKeyEvents(request.portalUser.vendorId, request.params.id);
+    return { events };
   });
 
   // GET /api/v1/portal/tenants/:id/masking-rules

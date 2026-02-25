@@ -83,6 +83,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query('DELETE FROM key_events WHERE tenant_id IN (SELECT id FROM tenants WHERE vendor_id = $1)', [vendorId]);
   await pool.query('DELETE FROM sessions WHERE tenant_id = $1', [tenantId]);
   await pool.query('DELETE FROM tenants WHERE vendor_id = $1', [vendorId]);
   await pool.query('DELETE FROM portal_sessions');
