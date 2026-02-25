@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import * as db from '../db/index.js';
 import { UnauthorizedError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
