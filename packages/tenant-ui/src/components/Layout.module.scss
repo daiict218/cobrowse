@@ -1,11 +1,13 @@
 .wrapper {
-  display: flex;
   min-height: 100vh;
 }
 
 .main {
-  flex: 1;
   margin-left: var(--sidebar-width);
-  padding: var(--space-xl);
-  max-width: 1200px;
+  padding: var(--space-xl) var(--space-2xl);
+  transition: margin-left 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.mainCollapsed {
+  margin-left: var(--sidebar-width-collapsed);
 }
