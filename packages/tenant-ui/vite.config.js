@@ -41,6 +41,10 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5173,
+    hmr: {
+      // Separate WS port avoids base-path ('/portal/') mangling the WebSocket URL.
+      port: 5174,
+    },
     proxy: {
       '/api': 'http://localhost:4000',
     },

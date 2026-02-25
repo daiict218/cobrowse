@@ -9,7 +9,7 @@
   left: 0;
   bottom: 0;
   z-index: 10;
-  transition: width 200ms ease;
+  transition: width 200ms cubic-bezier(0.2, 0, 0, 1);
   overflow: hidden;
 }
 
@@ -21,6 +21,7 @@
   padding: var(--space-lg);
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
+  overflow: hidden;
 }
 
 .brandName {
@@ -33,11 +34,18 @@
   font-size: 12px;
   color: var(--color-text-muted);
   margin-top: 2px;
+  opacity: 1;
+  transition: opacity 150ms ease;
+
+  .sidebarCollapsed & {
+    opacity: 0;
+  }
 }
 
 .nav {
   flex: 1;
   padding: var(--space-md);
+  overflow-x: hidden;
 }
 
 .navLink {
@@ -54,10 +62,12 @@
   margin-bottom: 4px;
   transition: background 0.15s;
   white-space: nowrap;
+  overflow: hidden;
 
   .sidebarCollapsed & {
     justify-content: center;
     padding: 10px;
+    gap: 0;
   }
 }
 
@@ -68,30 +78,44 @@
 }
 
 .navIcon {
-  font-size: 16px;
+  font-size: 18px;
   flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .navLabel {
+  opacity: 1;
+  transition: opacity 150ms ease;
   overflow: hidden;
+
+  .sidebarCollapsed & {
+    opacity: 0;
+    width: 0;
+  }
 }
 
 .toggleBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 var(--space-md) var(--space-sm);
-  padding: 6px;
-  border: 1px solid var(--color-border);
+  margin: 0 var(--space-md) var(--space-md);
+  padding: 8px;
+  border: 1px solid var(--color-primary-border);
   border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text-secondary);
-  font-size: 16px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 18px;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
 
   &:hover {
-    background: var(--color-border);
+    background: var(--color-primary);
+    color: var(--color-surface);
   }
 }
 
@@ -103,20 +127,35 @@
   overflow: hidden;
 
   .sidebarCollapsed & {
-    display: flex;
-    justify-content: center;
+    text-align: center;
   }
 }
 
 .userName {
   color: var(--color-text-secondary);
   margin-bottom: 4px;
+  opacity: 1;
+  transition: opacity 150ms ease;
+
+  .sidebarCollapsed & {
+    opacity: 0;
+    height: 0;
+    margin: 0;
+  }
 }
 
 .vendorName {
   color: var(--color-text-muted);
   font-size: 12px;
   margin-bottom: 8px;
+  opacity: 1;
+  transition: opacity 150ms ease;
+
+  .sidebarCollapsed & {
+    opacity: 0;
+    height: 0;
+    margin: 0;
+  }
 }
 
 .logoutBtn {

@@ -22,7 +22,7 @@ function Sidebar({ collapsed, onToggle }) {
     <aside className={sidebarClass}>
       <div className={s.brand}>
         <div className={s.brandName}>{collapsed ? 'CB' : 'CoBrowse'}</div>
-        {!collapsed && <div className={s.brandSub}>Vendor Portal</div>}
+        <div className={s.brandSub}>Vendor Portal</div>
       </div>
 
       <nav className={s.nav}>
@@ -37,7 +37,7 @@ function Sidebar({ collapsed, onToggle }) {
             title={collapsed ? item.label : undefined}
           >
             <span className={s.navIcon}>{item.icon}</span>
-            {!collapsed && <span className={s.navLabel}>{item.label}</span>}
+            <span className={s.navLabel}>{item.label}</span>
           </NavLink>
         ))}
       </nav>
@@ -51,12 +51,8 @@ function Sidebar({ collapsed, onToggle }) {
       </button>
 
       <div className={s.footer}>
-        {!collapsed && (
-          <>
-            <div className={s.userName}>{user?.name}</div>
-            <div className={s.vendorName}>{user?.vendorName}</div>
-          </>
-        )}
+        <div className={s.userName}>{user?.name}</div>
+        <div className={s.vendorName}>{user?.vendorName}</div>
         <button
           onClick={handleLogout}
           className={s.logoutBtn}

@@ -194,5 +194,30 @@ When proposing a plan, format it as:
 - **401 auto-redirect** — the `apiFetch` client automatically redirects to `/portal/login` on 401 responses (except for auth endpoints themselves).
 - **No tokens in URLs** — never pass session tokens, API keys, or secrets as query parameters.
 
-## 18) Maintenance rule
+## 18) UI component design principles (mandatory for tenant-ui)
+
+### Layout
+- **Fluid content areas.** Never set `max-width` on layout containers (main, panels). Let individual page components (cards, tables, forms) define their own `max-width` if needed. Parent containers must expand to fill available space.
+- **CSS custom properties for all dimensions.** Define widths, heights, breakpoints in `variables.scss`. Components read variables — never hardcode pixel values for layout dimensions.
+- **Constant padding.** Layout padding (`var(--space-xl) var(--space-2xl)`) stays fixed regardless of component state changes (collapsed, expanded, resized). Changing padding during transitions causes layout jank.
+
+### Animation and transitions
+- **Duration: 200ms. Easing: `cubic-bezier(0.2, 0, 0, 1)`.** The standard for all layout transitions (width, margin, height). Faster than 150ms feels jumpy; slower than 300ms feels sluggish.
+- **Fade text at 150ms, geometry at 200ms.** Text opacity transitions should complete slightly before parent container finishes resizing — prevents clipped text mid-animation.
+- **Animate with `opacity` and `transform` where possible.** These are GPU-composited. Use `width`/`margin`/`height` only when geometry must actually change. Never animate `display` or `visibility` alone — pair with `opacity` for smooth transitions.
+- **Never conditionally render (`{show && ...}`) elements that should animate out.** Always render the element; toggle `opacity: 0` + `width: 0` or `height: 0` via CSS class so the exit animation plays.
+
+### Interactive elements
+- **Minimum 40px hit target.** All clickable elements (buttons, nav links, icons) must have at least 40x40px clickable area (via padding, min-width/height). Icons themselves can be 18–24px but the tap target must be larger.
+- **`title` attribute for icon-only states.** Any element that hides its text label must have a `title` tooltip so the action remains discoverable on hover.
+- **Visible focus and hover states.** Every interactive element needs `:hover` (background or color shift) and `:focus-visible` (outline or ring). Use `transition: background 0.15s` for hover feedback.
+
+### Overflow and clipping
+- **`overflow: hidden` on resizable containers.** Any component that changes dimensions (sidebar, accordion, drawer) must clip its children to prevent content leaking during transitions.
+- **`white-space: nowrap` on labels inside resizable containers.** Prevents text from reflowing mid-transition.
+
+### State persistence
+- **Persist UI preferences in `localStorage`.** Collapse state, sort order, selected tabs, panel sizes — any user choice that should survive page refresh. Use short keys (e.g. `'sb'`). Read in `useState` initializer: `useState(() => localStorage.getItem(key))`.
+
+## 19) Maintenance rule
 If you notice a recurring mistake (style, security, workflow), propose a concrete update to this CLAUDE.md or the relevant @docs/* file so it does not repeat. :contentReference[oaicite:3]{index=3}
