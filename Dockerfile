@@ -1,4 +1,4 @@
-# ─── Stage 1: Install dependencies + build SDK ──────────────────────────────
+# ─── Stage 1: Install dependencies + build SDK, Agent SDK, Tenant UI ─────────
 FROM node:22-alpine AS builder
 
 WORKDIR /app
@@ -7,11 +7,21 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/server/package.json packages/server/
 COPY packages/sdk/package.json packages/sdk/
+COPY packages/agent-sdk/package.json packages/agent-sdk/
+COPY packages/tenant-ui/package.json packages/tenant-ui/
 RUN npm ci --ignore-scripts
 
-# Copy source and build SDK (esbuild → packages/server/public/sdk/cobrowse.js)
+# Build SDK (esbuild → packages/server/public/sdk/cobrowse.js)
 COPY packages/sdk/ packages/sdk/
 RUN npm run build:sdk
+
+# Build Agent SDK (esbuild → packages/server/public/sdk/cobrowse-agent.js)
+COPY packages/agent-sdk/ packages/agent-sdk/
+RUN npm run build:agent-sdk
+
+# Build Tenant UI (vite → packages/server/public/tenant-ui/)
+COPY packages/tenant-ui/ packages/tenant-ui/
+RUN npm run build:tenant-ui
 
 # ─── Stage 2: Production image ──────────────────────────────────────────────
 FROM node:22-alpine AS production
@@ -35,10 +45,14 @@ RUN npm ci --omit=dev --workspace=packages/server --ignore-scripts \
 # Copy server source
 COPY packages/server/ packages/server/
 
-# Copy built SDK bundle from builder stage
+# Copy built SDK bundles from builder stage
 COPY --from=builder /app/packages/server/public/sdk/cobrowse.js packages/server/public/sdk/cobrowse.js
 COPY --from=builder /app/packages/server/public/sdk/cobrowse.min.js packages/server/public/sdk/cobrowse.min.js
 COPY --from=builder /app/packages/server/public/sdk/cobrowse.js.map packages/server/public/sdk/cobrowse.js.map
+COPY --from=builder /app/packages/server/public/sdk/cobrowse-agent.js packages/server/public/sdk/cobrowse-agent.js
+
+# Copy built Tenant UI from builder stage
+COPY --from=builder /app/packages/server/public/tenant-ui/ packages/server/public/tenant-ui/
 
 # Own the app directory
 RUN chown -R cobrowse:cobrowse /app

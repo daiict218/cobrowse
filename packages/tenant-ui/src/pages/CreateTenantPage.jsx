@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api/client.js';
 import Modal from '../components/Modal.jsx';
+import CopyButton from '../components/CopyButton.jsx';
 import s from './CreateTenantPage.module.scss';
 
 function CreateTenantPage() {
@@ -103,12 +104,18 @@ function CreateTenantPage() {
 
             <div className={`form-group ${s.keyGroup}`}>
               <label>Secret Key</label>
-              <code className={s.keyCode}>{keys.secretKey}</code>
+              <div className={s.keyRow}>
+                <code className={s.keyCode}>{keys.secretKey}</code>
+                <CopyButton value={keys.secretKey} />
+              </div>
             </div>
 
             <div className={`form-group ${s.keyGroupLg}`}>
               <label>Public Key</label>
-              <code className={s.keyCode}>{keys.publicKey}</code>
+              <div className={s.keyRow}>
+                <code className={s.keyCode}>{keys.publicKey}</code>
+                <CopyButton value={keys.publicKey} />
+              </div>
             </div>
 
             <button className="btn btn-primary" onClick={handleClose}>

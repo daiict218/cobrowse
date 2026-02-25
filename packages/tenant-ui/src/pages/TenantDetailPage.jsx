@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import Modal from '../components/Modal.jsx';
+import CopyButton from '../components/CopyButton.jsx';
 import s from './TenantDetailPage.module.scss';
 
 function TenantDetailPage() {
@@ -19,6 +20,8 @@ function TenantDetailPage() {
   const [saveError, setSaveError] = useState('');
   const [rotatedKeys, setRotatedKeys] = useState(null);
   const [rotating, setRotating] = useState(false);
+  const [confirmRotate, setConfirmRotate] = useState(false);
+  const [rotateError, setRotateError] = useState('');
 
   const tenant = data?.tenant;
 
@@ -57,13 +60,14 @@ function TenantDetailPage() {
   };
 
   const handleRotateKeys = async () => {
-    if (!window.confirm('Rotate API keys? Existing keys will stop working immediately.')) return;
     setRotating(true);
+    setRotateError('');
     try {
       const result = await apiFetch(`/tenants/${id}/rotate-keys`, { method: 'POST' });
+      setConfirmRotate(false);
       setRotatedKeys(result.keys);
     } catch (err) {
-      alert(err.message);
+      setRotateError(err.message);
     } finally {
       setRotating(false);
     }
@@ -85,8 +89,8 @@ function TenantDetailPage() {
         {isAdmin && !editing && (
           <div className={s.headerActions}>
             <button className="btn btn-secondary" onClick={startEdit}>Edit</button>
-            <button className="btn btn-danger btn-sm" onClick={handleRotateKeys} disabled={rotating}>
-              {rotating ? 'Rotating...' : 'Rotate Keys'}
+            <button className="btn btn-danger btn-sm" onClick={() => setConfirmRotate(true)}>
+              Rotate Keys
             </button>
           </div>
         )}
@@ -175,21 +179,50 @@ function TenantDetailPage() {
         </>
       )}
 
-      <Modal open={!!rotatedKeys} onClose={() => setRotatedKeys(null)} title="Keys Rotated">
+      <Modal open={confirmRotate} onClose={() => { setConfirmRotate(false); setRotateError(''); }} title="Rotate API Keys">
+        <div className={s.warning}>
+          <strong>This is a destructive action.</strong> The current secret key and public key will be
+          permanently revoked. Any integrations using the existing keys will stop working immediately.
+        </div>
+        <p className={s.confirmDetail}>You will receive a new key pair. Make sure you have access to update
+          your integration configuration before proceeding.</p>
+        {rotateError && <div className={s.error}>{rotateError}</div>}
+        <div className={s.actions}>
+          <button className="btn btn-danger" onClick={handleRotateKeys} disabled={rotating}>
+            {rotating ? 'Rotating...' : 'Revoke & Generate New Keys'}
+          </button>
+          <button className="btn btn-secondary" onClick={() => { setConfirmRotate(false); setRotateError(''); }} disabled={rotating}>
+            Cancel
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={!!rotatedKeys} onClose={() => setRotatedKeys(null)} title="New API Keys Generated">
         {rotatedKeys && (
           <div>
-            <p className={s.warning}>
-              These keys are shown ONCE. Previous keys are now invalid.
+            <div className={s.warning}>
+              <strong>Copy both keys now.</strong> The secret key will not be shown again after you close
+              this dialog. Store them in a secure location such as your environment variables or a secrets manager.
+            </div>
+            <p className={s.confirmDetail}>
+              The previous keys have been revoked. Update your integration configuration with these new keys
+              to restore connectivity.
             </p>
             <div className={`form-group ${s.keyGroup}`}>
               <label>Secret Key</label>
-              <code className={s.keyCode}>{rotatedKeys.secretKey}</code>
+              <div className={s.keyRow}>
+                <code className={s.keyCode}>{rotatedKeys.secretKey}</code>
+                <CopyButton value={rotatedKeys.secretKey} />
+              </div>
             </div>
             <div className={`form-group ${s.keyGroupLg}`}>
               <label>Public Key</label>
-              <code className={s.keyCode}>{rotatedKeys.publicKey}</code>
+              <div className={s.keyRow}>
+                <code className={s.keyCode}>{rotatedKeys.publicKey}</code>
+                <CopyButton value={rotatedKeys.publicKey} />
+              </div>
             </div>
-            <button className="btn btn-primary" onClick={() => setRotatedKeys(null)}>Done</button>
+            <button className="btn btn-primary" onClick={() => setRotatedKeys(null)}>I've Saved These Keys</button>
           </div>
         )}
       </Modal>
