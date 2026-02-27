@@ -69,6 +69,7 @@ body {
   font-weight: 700;
   flex-shrink: 0;
   color: var(--text-muted);
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .step.active .step-num {
@@ -155,6 +156,104 @@ body {
 }
 textarea { resize: vertical; min-height: 80px; }
 
+/* ── Custom select (DOM-based — visible to rrweb, unlike native <select>) ── */
+.custom-select {
+  position: relative;
+}
+.custom-select-trigger {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: #fff;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+.custom-select-trigger:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(30,77,183,0.1);
+}
+.custom-select-value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.custom-select-value.placeholder {
+  color: var(--text-muted);
+}
+.custom-select-arrow {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+.custom-select.open .custom-select-arrow {
+  transform: rotate(180deg);
+}
+.custom-select-options {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  list-style: none;
+  z-index: 100;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.custom-select.open .custom-select-options {
+  display: block;
+}
+.custom-select-options li {
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.custom-select-options li:first-child {
+  border-radius: 8px 8px 0 0;
+}
+.custom-select-options li:last-child {
+  border-radius: 0 0 8px 8px;
+}
+.custom-select-options li:hover,
+.custom-select-options li.focused {
+  background: #ebf5ff;
+  color: var(--brand);
+}
+.custom-select-options li[aria-selected="true"] {
+  font-weight: 600;
+  color: var(--brand);
+}
+.custom-select .input-error-trigger {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(229,62,62,0.1);
+}
+
+/* Inline validation errors */
+.form-input.input-error, .form-select.input-error {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(229,62,62,0.1);
+}
+.field-error {
+  font-size: 12px;
+  color: var(--red);
+  margin-top: 4px;
+}
+
 /* Sensitive field indicator */
 .form-input.sensitive {
   background: #fffbeb;
@@ -182,6 +281,40 @@ textarea { resize: vertical; min-height: 80px; }
 .file-upload .icon { font-size: 32px; margin-bottom: 8px; }
 .file-upload p     { font-size: 13px; color: var(--text-muted); }
 .file-upload input { display: none; }
+.file-upload-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.file-list {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.file-list-item {
+  padding: 4px 0;
+}
+
+/* OTP section */
+.otp-card {
+  display: none;
+}
+.otp-card.visible {
+  display: block;
+}
+.otp-description {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.otp-input-container {
+  max-width: 200px;
+}
+.otp-input {
+  letter-spacing: 8px;
+  font-size: 20px;
+  text-align: center;
+}
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
 .btn-group {
@@ -189,6 +322,10 @@ textarea { resize: vertical; min-height: 80px; }
   justify-content: space-between;
   align-items: center;
   margin-top: 24px;
+}
+.btn-row {
+  display: flex;
+  gap: 12px;
 }
 
 .btn {
@@ -200,10 +337,45 @@ textarea { resize: vertical; min-height: 80px; }
   border: none;
   transition: opacity 0.15s;
 }
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .btn-primary { background: var(--brand); color: #fff; }
-.btn-primary:hover { background: var(--brand-h); }
+.btn-primary:hover:not(:disabled) { background: var(--brand-h); }
 .btn-secondary { background: #fff; color: var(--text); border: 1px solid var(--border); }
-.btn-secondary:hover { background: var(--bg); }
+.btn-secondary:hover:not(:disabled) { background: var(--bg); }
+
+/* ── Toast notifications ─────────────────────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s cubic-bezier(0.2, 0, 0, 1);
+  max-width: 360px;
+}
+.toast.visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+.toast-info    { background: var(--brand); }
+.toast-success { background: var(--green); }
+.toast-error   { background: var(--red); }
+.toast-warning { background: #d69e2e; }
 
 /* ── Status bar (SDK state) ──────────────────────────────────────────────── */
 #sdk-status-bar {
