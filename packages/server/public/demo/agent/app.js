@@ -91,6 +91,10 @@ async function startSession() {
   agentId = agentIdInput;
   setButtonState('btn-start', true, '⏳ Starting…');
 
+  // Pre-open viewer window NOW (synchronous, in user-gesture context) to avoid
+  // popup blockers on production domains. Navigate to viewer URL once ready.
+  viewerWindow = window.open('about:blank', 'cobrowse-viewer', 'width=1024,height=768');
+
   try {
     // ── Step 1: Create session via CoBrowse API ─────────────────────────────
     logEvent('api', 'Creating session via POST /api/v1/sessions…');
@@ -120,6 +124,26 @@ async function startSession() {
 
     logEvent('viewer', 'Viewer URL ready');
 
+    // Navigate the pre-opened viewer window to the actual viewer URL.
+    // The embed viewer shows "Connecting to session…" while waiting for customer.
+    if (viewerWindow && !viewerWindow.closed) {
+      viewerWindow.location.href = viewerUrl;
+      logEvent('viewer', 'Viewer window opened');
+      document.getElementById('info-placeholder').classList.add('hidden');
+      document.getElementById('viewer-status').classList.remove('hidden');
+
+      // Detect when viewer window is closed
+      const checkClosed = setInterval(() => {
+        if (viewerWindow && viewerWindow.closed) {
+          clearInterval(checkClosed);
+          viewerWindow = null;
+          logEvent('viewer', 'Viewer window closed');
+          document.getElementById('viewer-status').classList.add('hidden');
+          document.getElementById('info-placeholder').classList.remove('hidden');
+        }
+      }, 1000);
+    }
+
     // ── Show session info ───────────────────────────────────────────────────
     showSessionSection(session);
     startTimer();
@@ -128,6 +152,9 @@ async function startSession() {
   } catch (err) {
     logEvent('error', err.message);
     showToast('Failed to start session: ' + err.message, 'error');
+    // Close the blank window on error
+    if (viewerWindow && !viewerWindow.closed) viewerWindow.close();
+    viewerWindow = null;
   } finally {
     setButtonState('btn-start', false, '🚀 Start Co-Browse');
   }
@@ -171,7 +198,6 @@ function startSessionPoll() {
         sessionActive = true;
         logEvent('success', 'Customer connected');
         updateStatus('active', 'Session Active');
-        openViewer();
       } else if (res.status === 'ended') {
         clearInterval(pollInterval);
         logEvent('session', `Session ended. Reason: ${res.endReason || 'unknown'}`);
