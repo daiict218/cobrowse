@@ -98,6 +98,10 @@
 
     .error-view { color: #ef4444; }
     .error-view h2 { color: #ef4444; }
+
+    .ended-view { color: #e8eaf2; }
+    .ended-view .icon { color: #4ade80; }
+    .ended-view h2 { color: #e8eaf2; }
   </style>
 </head>
 <body>
@@ -170,7 +174,7 @@
       const session = await apiCall('GET', '/api/v1/sessions/' + SESSION_ID);
 
       if (session.status === 'ended') {
-        showError('Session Ended', 'This co-browse session has already ended.');
+        showSessionEnded('This co-browse session has already ended.');
         return;
       }
 
@@ -222,7 +226,7 @@
       } else if (msg.name === 'snapshot.updated') {
         refreshReplayer();
       } else if (msg.name === 'session.ended') {
-        showError('Session Ended', 'The session has been ended.');
+        showSessionEnded('The session has been ended.');
         teardown();
       }
     });
@@ -256,7 +260,7 @@
           startSnapshotPoll();
         } else if (s.status === 'ended') {
           clearInterval(sessionPollInterval);
-          showError('Session Ended', 'Reason: ' + (s.endReason || 'unknown'));
+          showSessionEnded('Reason: ' + (s.endReason || 'unknown'));
           teardown();
         }
       } catch (err) { console.error('[viewer] session poll error:', err); }
@@ -384,7 +388,7 @@
   async function endSession() {
     try {
       await apiCall('DELETE', '/api/v1/sessions/' + SESSION_ID);
-      showError('Session Ended', 'You ended the session.');
+      showSessionEnded('You ended the session.');
       teardown();
       notifyParent({ type: 'session.stateChange', state: 'ended' });
     } catch (err) {
@@ -405,9 +409,23 @@
   function showError(title, detail) {
     document.getElementById('loading-view').style.display = 'none';
     document.getElementById('viewer-frame').style.display = 'none';
-    document.getElementById('error-view').style.display = 'flex';
+    const ev = document.getElementById('error-view');
+    ev.style.display = 'flex';
+    ev.className = 'placeholder error-view';
     document.getElementById('error-title').textContent = title;
     document.getElementById('error-detail').textContent = detail;
+  }
+
+  function showSessionEnded(detail) {
+    document.getElementById('loading-view').style.display = 'none';
+    document.getElementById('viewer-frame').style.display = 'none';
+    const ev = document.getElementById('error-view');
+    ev.style.display = 'flex';
+    ev.className = 'placeholder ended-view';
+    document.getElementById('error-title').textContent = 'Session Ended';
+    document.getElementById('error-detail').textContent = detail || 'The session has ended.';
+    const icon = ev.querySelector('.icon');
+    if (icon) icon.textContent = '\u2713';
   }
 
   function updateStatus(text) {
@@ -428,6 +446,10 @@
 
     if (e.data?.action === 'endSession') endSession();
     if (e.data?.action === 'togglePointer') togglePointer();
+    if (e.data?.action === 'sessionEndedByAgent') {
+      showSessionEnded('The agent ended this session.');
+      teardown();
+    }
   });
 
   // ─── Wire up controls ─────────────────────────────────────────────────────

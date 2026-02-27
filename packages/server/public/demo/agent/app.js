@@ -188,6 +188,10 @@ async function endSession() {
   try {
     await apiCall('DELETE', `/api/v1/sessions/${sessionId}`);
     logEvent('session', 'Session ended by agent');
+    // Notify viewer window to show clean end state before closing
+    if (viewerWindow && !viewerWindow.closed) {
+      viewerWindow.postMessage({ action: 'sessionEndedByAgent' }, '*');
+    }
     teardown('agent');
   } catch (err) {
     logEvent('error', err.message);
@@ -197,7 +201,11 @@ async function endSession() {
 }
 
 // ─── Teardown ─────────────────────────────────────────────────────────────────
+let tornDown = false;
 function teardown(reason) {
+  if (tornDown) return; // prevent double teardown (Ably + poll race)
+  tornDown = true;
+
   clearInterval(timerInterval);
   clearInterval(pollInterval);
 
@@ -219,6 +227,7 @@ function teardown(reason) {
   setTimeout(function () {
     document.getElementById('section-status').classList.add('hidden');
     document.getElementById('section-setup').classList.remove('hidden');
+    tornDown = false; // reset for next session
   }, 2000);
 }
 

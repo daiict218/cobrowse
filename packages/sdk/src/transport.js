@@ -80,7 +80,9 @@ class Transport {
     // Channels are keyed by tenantId to prevent cross-tenant access
     this._domCh  = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:dom`);
     this._ctrlCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:ctrl`);
-    this._sysCh  = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:sys`);
+    // [?rewind=1] replays the last published message on subscribe.
+    // Ensures session.ended events published before SDK subscribes are not lost.
+    this._sysCh  = this._ably.channels.get(`[?rewind=1]session:${tenantId}:${this._sessionId}:sys`);
 
     // Agent pointer events — validate bounds before using
     this._ctrlCh.subscribe('pointer', (msg) => {
