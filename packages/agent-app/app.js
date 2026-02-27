@@ -62,10 +62,6 @@ async function startSession() {
   agentId = agentIdInput;
   setButtonState('btn-start', true, '⏳ Starting…');
 
-  // Pre-open viewer window NOW (synchronous, in user-gesture context) to avoid
-  // popup blockers on production domains. Navigate to viewer URL once ready.
-  var preOpenedWindow = window.open('about:blank', 'cobrowse-viewer', 'width=1024,height=768');
-
   try {
     // Initialize Agent SDK with appropriate auth
     if (jwtMode) {
@@ -110,17 +106,6 @@ async function startSession() {
 
     sessionId = res.sessionId;
 
-    // Navigate the pre-opened window to the viewer URL.
-    // The embed viewer shows "Connecting to session…" while waiting for customer.
-    if (preOpenedWindow && !preOpenedWindow.closed && agent) {
-      const token = agent._jwt || '';
-      const viewerUrl = `${CONFIG.serverUrl}/embed/session/${sessionId}?token=${encodeURIComponent(token)}`;
-      preOpenedWindow.location.href = viewerUrl;
-      agent._viewerWindows.set(sessionId, preOpenedWindow);
-      agent._startWindowPolling();
-      agent._emit('viewer.opened', { sessionId });
-    }
-
     showSessionSection(res);
     startTimer();
     startSessionPoll();
@@ -128,8 +113,6 @@ async function startSession() {
   } catch (err) {
     logEvent('error', err.message);
     showToast('Failed to start session: ' + err.message, 'error');
-    // Close the blank window on error
-    if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
   } finally {
     setButtonState('btn-start', false, '🚀 Start Co-Browse');
   }
@@ -155,6 +138,17 @@ function startSessionPoll() {
         sessionActive = true;
         logEvent('success', 'Customer connected');
         updateStatus('active', 'Session Active');
+
+        // Try auto-open viewer via Agent SDK (may be blocked in async context)
+        agent.openViewer(sessionId);
+        // Check if popup was blocked (SDK only registers window if open succeeded)
+        if (agent._viewerWindows.has(sessionId)) {
+          logEvent('viewer', 'Viewer window opened');
+        } else {
+          // Popup blocked — agent can use the Open Viewer button instead
+          showToast('Customer connected — click Open Viewer to start', 'success');
+          logEvent('viewer', 'Popup blocked — use Open Viewer button');
+        }
       } else if (res.status === 'ended') {
         clearInterval(sessionPollInterval);
         logEvent('session', `Session ended. Reason: ${res.endReason || 'unknown'}`);

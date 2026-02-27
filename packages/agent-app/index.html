@@ -13,35 +13,36 @@
   <span class="topbar-logo">🔍 CoBrowse</span>
   <span class="topbar-badge">AGENT CONSOLE</span>
   <div class="topbar-right">
-    <span class="agent-name" id="agent-name-display">Agent: —</span>
+    <div class="topbar-avatar">SM</div>
+    <span class="agent-name" id="agent-name-display">Sarah Mitchell</span>
   </div>
 </header>
 
 <div class="layout">
 
-  <!-- ── Sidebar (now full-width since viewer is in a separate window) ─── -->
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
   <aside class="sidebar">
 
     <!-- Setup section -->
     <div class="sidebar-section" id="section-setup">
       <div class="section-label">Session Setup</div>
 
-      <div class="form-group">
-        <label class="form-label" for="input-agent-id">Agent ID</label>
-        <input class="form-input" id="input-agent-id" type="text"
-          placeholder="e.g. agent_john" value="agent_001" />
+      <div class="demo-identity">
+        <div class="demo-avatar">SM</div>
+        <div>
+          <div class="demo-name">Sarah Mitchell</div>
+          <div class="demo-id">Agent</div>
+        </div>
+        <input type="hidden" id="input-agent-id" value="agent_sarah" />
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="input-customer-id">Customer ID</label>
-        <input class="form-input" id="input-customer-id" type="text"
-          placeholder="e.g. cust_123" value="cust_demo_001" />
-      </div>
-
-      <div class="form-group">
-        <label class="form-label" for="input-channel-ref">Channel Ref (optional)</label>
-        <input class="form-input" id="input-channel-ref" type="text"
-          placeholder="e.g. conv_456 (Sprinklr conversation ID)" />
+      <div class="demo-identity">
+        <div class="demo-avatar" style="background: #3b82f6;">AJ</div>
+        <div>
+          <div class="demo-name">Alex Johnson</div>
+          <div class="demo-id">Customer</div>
+        </div>
+        <input type="hidden" id="input-customer-id" value="cust_demo_001" />
       </div>
 
       <div class="form-group">
@@ -51,13 +52,13 @@
         </label>
       </div>
 
-      <button class="btn btn-primary" id="btn-start">
+      <button class="btn btn-primary btn-start" id="btn-start">
         🚀 Start Co-Browse
       </button>
     </div>
 
     <!-- Session status section (hidden until session starts) -->
-    <div class="sidebar-section" id="section-status" style="display:none;">
+    <div class="sidebar-section hidden" id="section-status">
       <div class="section-label">Active Session</div>
 
       <div id="status-pill" class="status-pill status-pending">
@@ -80,20 +81,23 @@
         <strong id="info-agent-id">—</strong>
       </div>
 
-      <div style="margin: 14px 0 0;">
-        <div class="section-label" style="margin-bottom:8px;">Invite Link</div>
-        <div class="invite-box visible" id="invite-link-box">—</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;">
+      <div class="invite-section">
+        <div class="section-label invite-label">Invite Link</div>
+        <div class="invite-link-row">
+          <div class="invite-link-display" id="invite-link-display">—</div>
+          <button class="btn-copy" id="btn-copy-link" title="Copy invite link">📋</button>
+        </div>
+        <div class="invite-hint">
           In production this is sent via SMS/WhatsApp.<br>
-          For demo: open this link in another tab or window.
+          For demo: open this link in another tab.
         </div>
       </div>
 
-      <button class="btn btn-primary" id="btn-open-viewer" style="margin-bottom:10px;">
+      <button class="btn btn-primary btn-viewer" id="btn-open-viewer">
         🖥️ Open Viewer
       </button>
 
-      <button class="btn btn-danger" id="btn-end">
+      <button class="btn btn-danger btn-end" id="btn-end">
         ⏹ End Session
       </button>
     </div>
@@ -104,27 +108,46 @@
       <div class="event-log" id="event-log">
         <div class="log-entry">
           <span class="log-time">—</span>
-          <span class="log-msg">Ready. Fill in the form above to start.</span>
+          <span class="log-msg">Ready. Click Start Co-Browse above.</span>
         </div>
       </div>
     </div>
 
   </aside>
 
-  <!-- ── Info pane (replaces viewer pane) ───────────────────────────────── -->
+  <!-- ── Info pane ───────────────────────────────────────────────────────── -->
   <main class="info-pane">
     <div class="info-placeholder" id="info-placeholder">
       <div class="icon">🖥️</div>
-      <h2>No active session</h2>
-      <p>Start a co-browse session from the sidebar.<br>The viewer will open in a separate window.</p>
+      <h2>Ready to Co-Browse</h2>
+      <div class="quick-guide">
+        <div class="guide-step">
+          <div class="guide-num">1</div>
+          <span>Click <strong>Start Co-Browse</strong> in the sidebar</span>
+        </div>
+        <div class="guide-step">
+          <div class="guide-num">2</div>
+          <span>Customer receives an invite and approves consent</span>
+        </div>
+        <div class="guide-step">
+          <div class="guide-num">3</div>
+          <span>Live viewer opens — guide the customer in real time</span>
+        </div>
+      </div>
     </div>
-    <div class="info-placeholder" id="viewer-status" style="display:none;">
+    <div class="info-placeholder hidden" id="viewer-status">
       <div class="icon">✅</div>
-      <h2>Viewer Window Open</h2>
-      <p>The customer's screen is displayed in the viewer window.<br>Use the controls there to manage the pointer and session.</p>
+      <h2>Session Active</h2>
+      <div class="session-tips">
+        <div class="tip">🎯 <strong>Pointer:</strong> Click the pointer button in the viewer to show your cursor on the customer's screen</div>
+        <div class="tip">🔒 <strong>Privacy:</strong> Sensitive fields like passwords and bank details are automatically masked</div>
+      </div>
     </div>
   </main>
 </div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
 
 <!-- Demo config — sets window.COBROWSE_DEMO_CONFIG with server-injected keys. -->
 <script src="/demo/config.js"></script>
