@@ -31,6 +31,28 @@ let agentId        = null;
 let timerInterval  = null;
 let startTime      = null;
 let pollInterval   = null;
+let currentInviteUrl = null;
+
+// ─── Toast notifications ─────────────────────────────────────────────────────
+function showToast(message, type) {
+  type = type || 'info';
+  var container = document.getElementById('toast-container');
+  var toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      toast.classList.add('visible');
+    });
+  });
+
+  setTimeout(function () {
+    toast.classList.remove('visible');
+    setTimeout(function () { toast.remove(); }, 200);
+  }, 3500);
+}
 
 // ─── API helper (simulates vendor backend calls to CoBrowse API) ─────────────
 async function apiCall(method, path, body) {
@@ -55,54 +77,45 @@ async function apiCall(method, path, body) {
 async function startSession() {
   const agentIdInput    = document.getElementById('input-agent-id').value.trim();
   const customerIdInput = document.getElementById('input-customer-id').value.trim();
-  const channelRef      = document.getElementById('input-channel-ref').value.trim();
 
   if (!agentIdInput || !customerIdInput) {
-    alert('Agent ID and Customer ID are required');
+    showToast('Agent ID and Customer ID are required', 'error');
     return;
   }
 
   if (!CONFIG.secretKey) {
-    alert('Secret key not configured. Set DEMO_SECRET_KEY in your server .env file.');
+    showToast('Secret key not configured. Set DEMO_SECRET_KEY in your server .env file.', 'error');
     return;
   }
 
   agentId = agentIdInput;
-  document.getElementById('agent-name-display').textContent = `Agent: ${agentId}`;
   setButtonState('btn-start', true, '⏳ Starting…');
 
   try {
     // ── Step 1: Create session via CoBrowse API ─────────────────────────────
-    // In production, this call is made by YOUR backend (never from the browser).
-    // The secret key stays on the server.
     logEvent('api', 'Creating session via POST /api/v1/sessions…');
 
     const sessionBody = {
       customerId: customerIdInput,
       agentId: agentIdInput,
     };
-    if (channelRef) sessionBody.channelRef = channelRef;
 
     const session = await apiCall('POST', '/api/v1/sessions', sessionBody);
     sessionId = session.sessionId;
 
-    logEvent('session.created', `Session ${sessionId.slice(0, 8)}… created`);
+    logEvent('session', `Session ${sessionId.slice(0, 8)}… created`);
 
     // ── Step 2: Get JWT for the embed viewer ────────────────────────────────
-    // In production, your backend signs a JWT with your private key.
-    // This demo uses the /api/v1/admin/demo-jwt endpoint to simulate that.
-    logEvent('jwt', 'Requesting JWT for viewer authentication…');
+    logEvent('api', 'Requesting JWT for viewer authentication…');
 
     const jwtRes = await apiCall('POST', '/api/v1/admin/demo-jwt', {
       agentId: agentIdInput,
-      agentName: agentIdInput,
+      agentName: 'Sarah Mitchell',
     });
 
-    logEvent('jwt', `JWT received (expires in ${jwtRes.expiresIn})`);
+    logEvent('session', `JWT received (expires in ${jwtRes.expiresIn})`);
 
     // ── Step 3: Construct the viewer URL ────────────────────────────────────
-    // The embed viewer is a self-contained page hosted by CoBrowse.
-    // It handles Ably connection, rrweb rendering, and real-time updates.
     viewerUrl = `${CONFIG.serverUrl}/embed/session/${sessionId}?token=${encodeURIComponent(jwtRes.jwt)}`;
 
     logEvent('viewer', 'Viewer URL ready');
@@ -114,7 +127,7 @@ async function startSession() {
 
   } catch (err) {
     logEvent('error', err.message);
-    alert(`Failed to start session: ${err.message}`);
+    showToast('Failed to start session: ' + err.message, 'error');
   } finally {
     setButtonState('btn-start', false, '🚀 Start Co-Browse');
   }
@@ -124,14 +137,12 @@ async function startSession() {
 function openViewer() {
   if (!viewerUrl) return;
 
-  // Open the embed viewer — same as documented:
-  // window.open(viewerUrl, 'cobrowse-viewer', 'width=1024,height=768');
   viewerWindow = window.open(viewerUrl, 'cobrowse-viewer', 'width=1024,height=768');
 
   if (viewerWindow) {
     logEvent('viewer', 'Viewer window opened');
-    document.getElementById('info-placeholder').style.display = 'none';
-    document.getElementById('viewer-status').style.display = 'flex';
+    document.getElementById('info-placeholder').classList.add('hidden');
+    document.getElementById('viewer-status').classList.remove('hidden');
 
     // Detect when viewer window is closed
     const checkClosed = setInterval(() => {
@@ -139,8 +150,8 @@ function openViewer() {
         clearInterval(checkClosed);
         viewerWindow = null;
         logEvent('viewer', 'Viewer window closed');
-        document.getElementById('viewer-status').style.display = 'none';
-        document.getElementById('info-placeholder').style.display = 'flex';
+        document.getElementById('viewer-status').classList.add('hidden');
+        document.getElementById('info-placeholder').classList.remove('hidden');
       }
     }, 1000);
   }
@@ -148,25 +159,22 @@ function openViewer() {
 
 // ─── Session status polling ─────────────────────────────────────────────────
 function startSessionPoll() {
-  let alreadyActive = false;
+  let sessionActive = false;
 
   pollInterval = setInterval(async () => {
-    if (!sessionId || alreadyActive) return;
+    if (!sessionId) return;
 
     try {
-      // Poll session status via CoBrowse API
       const res = await apiCall('GET', `/api/v1/sessions/${sessionId}`);
 
-      if (res.status === 'active' && !alreadyActive) {
-        alreadyActive = true;
-        clearInterval(pollInterval);
-        logEvent('customer.joined', 'Customer connected');
+      if (res.status === 'active' && !sessionActive) {
+        sessionActive = true;
+        logEvent('success', 'Customer connected');
         updateStatus('active', 'Session Active');
-        // Auto-open the viewer window as soon as customer consents
         openViewer();
       } else if (res.status === 'ended') {
         clearInterval(pollInterval);
-        logEvent('session.ended', `Session ended. Reason: ${res.endReason || 'unknown'}`);
+        logEvent('session', `Session ended. Reason: ${res.endReason || 'unknown'}`);
         teardown('ended');
       }
     } catch { /* non-fatal */ }
@@ -178,10 +186,8 @@ async function endSession() {
   if (!sessionId) return;
   setButtonState('btn-end', true, '⏳ Ending…');
   try {
-    // In production: your frontend calls YOUR backend, which calls CoBrowse API.
-    // DELETE /api/v1/sessions/:id ends the session.
     await apiCall('DELETE', `/api/v1/sessions/${sessionId}`);
-    logEvent('session.ended', 'Session ended by agent');
+    logEvent('session', 'Session ended by agent');
     teardown('agent');
   } catch (err) {
     logEvent('error', err.message);
@@ -195,7 +201,6 @@ function teardown(reason) {
   clearInterval(timerInterval);
   clearInterval(pollInterval);
 
-  // Close the viewer window if still open
   if (viewerWindow && !viewerWindow.closed) {
     viewerWindow.close();
   }
@@ -203,11 +208,18 @@ function teardown(reason) {
 
   sessionId = null;
   viewerUrl = null;
+  currentInviteUrl = null;
 
   updateStatus('ended', `Ended (${reason})`);
 
-  document.getElementById('viewer-status').style.display = 'none';
-  document.getElementById('info-placeholder').style.display = 'flex';
+  document.getElementById('viewer-status').classList.add('hidden');
+  document.getElementById('info-placeholder').classList.remove('hidden');
+
+  // After 2 seconds, return to setup so agent can start a new session
+  setTimeout(function () {
+    document.getElementById('section-status').classList.add('hidden');
+    document.getElementById('section-setup').classList.remove('hidden');
+  }, 2000);
 }
 
 // ─── Timer ────────────────────────────────────────────────────────────────────
@@ -223,12 +235,20 @@ function startTimer() {
 
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 function showSessionSection(session) {
-  document.getElementById('section-setup').style.display  = 'none';
-  document.getElementById('section-status').style.display = 'block';
+  document.getElementById('section-setup').classList.add('hidden');
+  document.getElementById('section-status').classList.remove('hidden');
   document.getElementById('info-session-id').textContent  = session.sessionId.slice(0, 12) + '…';
-  document.getElementById('info-customer-id').textContent = document.getElementById('input-customer-id').value;
-  document.getElementById('info-agent-id').textContent    = agentId;
-  document.getElementById('invite-link-box').textContent  = session.inviteUrl;
+  document.getElementById('info-customer-id').textContent = 'Alex Johnson';
+  document.getElementById('info-agent-id').textContent    = 'Sarah Mitchell';
+
+  // Show truncated invite path
+  currentInviteUrl = session.inviteUrl;
+  try {
+    var url = new URL(session.inviteUrl);
+    document.getElementById('invite-link-display').textContent = url.pathname + url.search;
+  } catch (e) {
+    document.getElementById('invite-link-display').textContent = session.inviteUrl;
+  }
 }
 
 function updateStatus(status, label) {
@@ -243,17 +263,47 @@ function setButtonState(id, disabled, label) {
   btn.textContent  = label;
 }
 
+// ─── Safe event logger (no innerHTML — prevents XSS) ─────────────────────────
 function logEvent(type, message) {
   const log  = document.getElementById('event-log');
   const time = new Date().toLocaleTimeString('en', { hour12: false });
+
   const entry = document.createElement('div');
   entry.className = 'log-entry';
-  entry.innerHTML = `<span class="log-time">${time}</span><span class="log-msg">${type}: ${message}</span>`;
+
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'log-time';
+  timeSpan.textContent = time;
+
+  const msgSpan = document.createElement('span');
+  msgSpan.className = 'log-msg';
+  msgSpan.textContent = type + ': ' + message;
+
+  // Color-code by event type
+  if (type === 'error')        msgSpan.classList.add('log-error');
+  else if (type === 'session') msgSpan.classList.add('log-session');
+  else if (type === 'success') msgSpan.classList.add('log-success');
+  else if (type === 'viewer')  msgSpan.classList.add('log-viewer');
+
+  entry.appendChild(timeSpan);
+  entry.appendChild(msgSpan);
   log.appendChild(entry);
   log.scrollTop = log.scrollHeight;
+}
+
+// ─── Copy invite link ─────────────────────────────────────────────────────────
+function copyInviteLink() {
+  if (!currentInviteUrl) return;
+  navigator.clipboard.writeText(currentInviteUrl).then(function () {
+    var btn = document.getElementById('btn-copy-link');
+    btn.textContent = '✓';
+    setTimeout(function () { btn.textContent = '📋'; }, 1500);
+    showToast('Invite link copied to clipboard', 'success');
+  });
 }
 
 // ─── UI event listeners ───────────────────────────────────────────────────────
 document.getElementById('btn-start').addEventListener('click', startSession);
 document.getElementById('btn-end').addEventListener('click', endSession);
 document.getElementById('btn-open-viewer').addEventListener('click', openViewer);
+document.getElementById('btn-copy-link').addEventListener('click', copyInviteLink);
