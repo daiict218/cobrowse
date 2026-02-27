@@ -91,8 +91,11 @@ async function startSession() {
   agentId = agentIdInput;
   setButtonState('btn-start', true, '⏳ Starting…');
 
-  // Pre-open viewer window NOW (synchronous, in user-gesture context) to avoid
-  // popup blockers on production domains. Navigate to viewer URL once ready.
+  // ── Reserve the viewer window NOW while we're in the user-gesture context ──
+  // Browsers block window.open() from async callbacks (popup blocker).
+  // We open it with about:blank first, then navigate to the viewer URL once
+  // session + JWT are ready. The viewer shows "Connecting to session…" until
+  // the customer accepts — then transitions to live view automatically.
   viewerWindow = window.open('about:blank', 'cobrowse-viewer', 'width=1024,height=768');
 
   try {
@@ -124,15 +127,17 @@ async function startSession() {
 
     logEvent('viewer', 'Viewer URL ready');
 
-    // Navigate the pre-opened viewer window to the actual viewer URL.
-    // The embed viewer shows "Connecting to session…" while waiting for customer.
+    // ── Navigate the reserved window to the viewer ──────────────────────────
+    // The embed viewer handles the full lifecycle: shows "Connecting…" while
+    // pending, transitions to live view when customer accepts, shows "Session
+    // Ended" when done. No extra agent action needed.
     if (viewerWindow && !viewerWindow.closed) {
       viewerWindow.location.href = viewerUrl;
       logEvent('viewer', 'Viewer window opened');
       document.getElementById('info-placeholder').classList.add('hidden');
       document.getElementById('viewer-status').classList.remove('hidden');
 
-      // Detect when viewer window is closed
+      // Detect when viewer window is closed by the agent
       const checkClosed = setInterval(() => {
         if (viewerWindow && viewerWindow.closed) {
           clearInterval(checkClosed);
@@ -152,7 +157,7 @@ async function startSession() {
   } catch (err) {
     logEvent('error', err.message);
     showToast('Failed to start session: ' + err.message, 'error');
-    // Close the blank window on error
+    // Close the reserved window on error
     if (viewerWindow && !viewerWindow.closed) viewerWindow.close();
     viewerWindow = null;
   } finally {

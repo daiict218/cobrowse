@@ -62,9 +62,12 @@ async function startSession() {
   agentId = agentIdInput;
   setButtonState('btn-start', true, '⏳ Starting…');
 
-  // Pre-open viewer window NOW (synchronous, in user-gesture context) to avoid
-  // popup blockers on production domains. Navigate to viewer URL once ready.
-  var preOpenedWindow = window.open('about:blank', 'cobrowse-viewer', 'width=1024,height=768');
+  // ── Reserve the viewer window NOW while we're in the user-gesture context ──
+  // Browsers block window.open() from async callbacks (popup blocker).
+  // We open it with about:blank first, then navigate to the viewer URL once
+  // session + JWT are ready. The viewer shows "Connecting to session…" until
+  // the customer accepts — then transitions to live view automatically.
+  var reservedWindow = window.open('about:blank', 'cobrowse-viewer', 'width=1024,height=768');
 
   try {
     // Initialize Agent SDK with appropriate auth
@@ -110,13 +113,15 @@ async function startSession() {
 
     sessionId = res.sessionId;
 
-    // Navigate the pre-opened window to the viewer URL.
-    // The embed viewer shows "Connecting to session…" while waiting for customer.
-    if (preOpenedWindow && !preOpenedWindow.closed && agent) {
+    // Navigate the reserved window to the viewer URL.
+    // The embed viewer handles the full lifecycle: shows "Connecting…" while
+    // pending, transitions to live view when customer accepts, shows "Session
+    // Ended" when done.
+    if (reservedWindow && !reservedWindow.closed && agent) {
       const token = agent._jwt || '';
       const viewerUrl = `${CONFIG.serverUrl}/embed/session/${sessionId}?token=${encodeURIComponent(token)}`;
-      preOpenedWindow.location.href = viewerUrl;
-      agent._viewerWindows.set(sessionId, preOpenedWindow);
+      reservedWindow.location.href = viewerUrl;
+      agent._viewerWindows.set(sessionId, reservedWindow);
       agent._startWindowPolling();
       agent._emit('viewer.opened', { sessionId });
     }
@@ -128,8 +133,8 @@ async function startSession() {
   } catch (err) {
     logEvent('error', err.message);
     showToast('Failed to start session: ' + err.message, 'error');
-    // Close the blank window on error
-    if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
+    // Close the reserved window on error
+    if (reservedWindow && !reservedWindow.closed) reservedWindow.close();
   } finally {
     setButtonState('btn-start', false, '🚀 Start Co-Browse');
   }
