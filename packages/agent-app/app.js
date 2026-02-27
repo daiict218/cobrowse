@@ -62,13 +62,6 @@ async function startSession() {
   agentId = agentIdInput;
   setButtonState('btn-start', true, '⏳ Starting…');
 
-  // ── Reserve the viewer window NOW while we're in the user-gesture context ──
-  // Browsers block window.open() from async callbacks (popup blocker).
-  // We open it with about:blank first, then navigate to the viewer URL once
-  // session + JWT are ready. The viewer shows "Connecting to session…" until
-  // the customer accepts — then transitions to live view automatically.
-  var reservedWindow = window.open('about:blank', 'cobrowse-viewer', 'width=1024,height=768');
-
   try {
     // Initialize Agent SDK with appropriate auth
     if (jwtMode) {
@@ -113,19 +106,6 @@ async function startSession() {
 
     sessionId = res.sessionId;
 
-    // Navigate the reserved window to the viewer URL.
-    // The embed viewer handles the full lifecycle: shows "Connecting…" while
-    // pending, transitions to live view when customer accepts, shows "Session
-    // Ended" when done.
-    if (reservedWindow && !reservedWindow.closed && agent) {
-      const token = agent._jwt || '';
-      const viewerUrl = `${CONFIG.serverUrl}/embed/session/${sessionId}?token=${encodeURIComponent(token)}`;
-      reservedWindow.location.href = viewerUrl;
-      agent._viewerWindows.set(sessionId, reservedWindow);
-      agent._startWindowPolling();
-      agent._emit('viewer.opened', { sessionId });
-    }
-
     showSessionSection(res);
     startTimer();
     startSessionPoll();
@@ -133,8 +113,6 @@ async function startSession() {
   } catch (err) {
     logEvent('error', err.message);
     showToast('Failed to start session: ' + err.message, 'error');
-    // Close the reserved window on error
-    if (reservedWindow && !reservedWindow.closed) reservedWindow.close();
   } finally {
     setButtonState('btn-start', false, '🚀 Start Co-Browse');
   }
@@ -160,6 +138,17 @@ function startSessionPoll() {
         sessionActive = true;
         logEvent('success', 'Customer connected');
         updateStatus('active', 'Session Active');
+
+        // Try auto-open viewer via Agent SDK (may be blocked in async context)
+        agent.openViewer(sessionId);
+        // Check if popup was blocked (SDK only registers window if open succeeded)
+        if (agent._viewerWindows.has(sessionId)) {
+          logEvent('viewer', 'Viewer window opened');
+        } else {
+          // Popup blocked — agent can use the Open Viewer button instead
+          showToast('Customer connected — click Open Viewer to start', 'success');
+          logEvent('viewer', 'Popup blocked — use Open Viewer button');
+        }
       } else if (res.status === 'ended') {
         clearInterval(sessionPollInterval);
         logEvent('session', `Session ended. Reason: ${res.endReason || 'unknown'}`);
