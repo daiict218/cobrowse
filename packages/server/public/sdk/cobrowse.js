@@ -10164,7 +10164,7 @@ var CoBrowse = (() => {
       log.debug("[CoBrowse] Transport: Ably connected");
       this._domCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:dom`);
       this._ctrlCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:ctrl`);
-      this._sysCh = this._ably.channels.get(`session:${tenantId}:${this._sessionId}:sys`);
+      this._sysCh = this._ably.channels.get(`[?rewind=1]session:${tenantId}:${this._sessionId}:sys`);
       this._ctrlCh.subscribe("pointer", (msg) => {
         const data = msg.data;
         if (!data || typeof data !== "object") return;
@@ -10602,6 +10602,7 @@ var CoBrowse = (() => {
       this._navigation = null;
       this._maskingRules = null;
       this._inviteAbly = null;
+      this._sessionEndPollTimer = null;
     }
     // ─── Initialise ──────────────────────────────────────────────────────────────
     async init(maskingRules) {
@@ -10831,6 +10832,7 @@ var CoBrowse = (() => {
       this._transport.connect(this._tenantId).then(() => log.debug("[CoBrowse] Transport connected")).catch((err) => log.error("[CoBrowse] Transport connect failed:", err.message));
       inject();
       onEndClick(() => this._endByCustomer());
+      this._pollForSessionEnd();
     }
     async _postSnapshot(snapshot, customerToken) {
       const url = `${this._serverUrl}/api/v1/snapshots/${this._sessionId}`;
@@ -10939,6 +10941,35 @@ var CoBrowse = (() => {
       };
       setTimeout(poll, 2e3);
     }
+    // ─── Polling fallback for session end ──────────────────────────────────────────
+    // Ably 'session.ended' events can be missed if the transport connects after the
+    // event was published and rewind doesn't fire (e.g. Brave shields block WebSocket).
+    // This polls the server as a reliable fallback to detect session end.
+    _pollForSessionEnd() {
+      let interval = 5e3;
+      const poll = async () => {
+        if (this._state !== "active") return;
+        try {
+          const res = await fetch(
+            `${this._serverUrl}/api/v1/public/pending-activation?customerId=${encodeURIComponent(this._customerId)}`,
+            { headers: { "X-CB-Public-Key": this._publicKey } }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (!data.sessionId || data.sessionId !== this._sessionId) {
+              log.info("[CoBrowse] Session end detected via polling");
+              this._cleanup("remote");
+              return;
+            }
+          }
+        } catch {
+        }
+        if (this._state !== "active") return;
+        interval = Math.min(interval * 1.5, 3e4);
+        this._sessionEndPollTimer = setTimeout(poll, interval);
+      };
+      this._sessionEndPollTimer = setTimeout(poll, 5e3);
+    }
     // ─── Cross-tab consent (customer consents on the Sprinklr-hosted page) ────────
     _listenForCrossTabConsent() {
       window.addEventListener("storage", (e) => {
@@ -10955,6 +10986,11 @@ var CoBrowse = (() => {
     }
     // ─── Cleanup ──────────────────────────────────────────────────────────────────
     _cleanup(reason) {
+      if (this._state === "idle") return;
+      if (this._sessionEndPollTimer) {
+        clearTimeout(this._sessionEndPollTimer);
+        this._sessionEndPollTimer = null;
+      }
       this._navigation?.stop();
       this._navigation = null;
       this._capture?.stop();

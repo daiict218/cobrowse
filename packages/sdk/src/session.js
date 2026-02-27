@@ -39,6 +39,9 @@ class Session {
 
     // Ably client for the invite channel (pre-session)
     this._inviteAbly = null;
+
+    // Polling fallback for detecting session end when Ably misses the event
+    this._sessionEndPollTimer = null;
   }
 
   // ─── Initialise ──────────────────────────────────────────────────────────────
@@ -346,6 +349,9 @@ class Session {
     // Inject the active session banner
     indicator.inject();
     indicator.onEndClick(() => this._endByCustomer());
+
+    // Start polling fallback for session end detection
+    this._pollForSessionEnd();
   }
 
   async _postSnapshot(snapshot, customerToken) {
@@ -470,6 +476,43 @@ class Session {
     setTimeout(poll, 2000); // first check 2 seconds after init
   }
 
+  // ─── Polling fallback for session end ──────────────────────────────────────────
+  // Ably 'session.ended' events can be missed if the transport connects after the
+  // event was published and rewind doesn't fire (e.g. Brave shields block WebSocket).
+  // This polls the server as a reliable fallback to detect session end.
+
+  _pollForSessionEnd() {
+    let interval = 5000; // start at 5s, grows with backoff
+
+    const poll = async () => {
+      if (this._state !== 'active') return; // already cleaned up
+
+      try {
+        const res = await fetch(
+          `${this._serverUrl}/api/v1/public/pending-activation?customerId=${encodeURIComponent(this._customerId)}`,
+          { headers: { 'X-CB-Public-Key': this._publicKey } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          // If no session found or a different session is active, our session ended
+          if (!data.sessionId || data.sessionId !== this._sessionId) {
+            log.info('[CoBrowse] Session end detected via polling');
+            this._cleanup('remote');
+            return;
+          }
+        }
+      } catch { /* non-fatal — will retry next interval */ }
+
+      if (this._state !== 'active') return; // check again after async work
+
+      // Exponential backoff: 5s → 7.5s → 11.25s → ... capped at 30s
+      interval = Math.min(interval * 1.5, 30000);
+      this._sessionEndPollTimer = setTimeout(poll, interval);
+    };
+
+    this._sessionEndPollTimer = setTimeout(poll, 5000); // first check 5s after capture starts
+  }
+
   // ─── Cross-tab consent (customer consents on the Sprinklr-hosted page) ────────
 
   _listenForCrossTabConsent() {
@@ -490,6 +533,11 @@ class Session {
   // ─── Cleanup ──────────────────────────────────────────────────────────────────
 
   _cleanup(reason) {
+    if (this._state === 'idle') return; // already cleaned up (Ably + poll race)
+    if (this._sessionEndPollTimer) {
+      clearTimeout(this._sessionEndPollTimer);
+      this._sessionEndPollTimer = null;
+    }
     this._navigation?.stop();
     this._navigation = null;
     this._capture?.stop();
